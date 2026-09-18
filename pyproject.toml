@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexusgate"
+version = "0.2.0"
+description = "Production-grade LLM gateway & RAG backend: multi-provider routing, semantic caching, async ingestion, observability."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Ardhendu Debnath" }]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "httpx>=0.27",
+    "redis>=5.0",
+    "pyjwt>=2.8",
+    "pyyaml>=6.0",
+    "prometheus-client>=0.20",
+    "numpy>=1.26",
+    "litellm>=1.50",
+    "qdrant-client>=1.12",
+    "pypdf>=5",
+    "python-multipart>=0.0.9",
+    "celery[redis]>=5.4",
+    "langfuse>=4",
+]
+
+[project.optional-dependencies]
+embeddings = ["fastembed>=0.4"]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5",
+    "fakeredis[lua]>=2.23",
+    "ruff>=0.5",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "SIM", "RUF"]
+ignore = ["B008"]  # FastAPI's Depends() in argument defaults is idiomatic

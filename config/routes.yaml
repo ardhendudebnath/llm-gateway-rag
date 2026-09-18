@@ -1,0 +1,47 @@
+# Route table. A client sends `"model": "<alias>"`; the router walks that alias's deployments in
+# order, falling back on timeout / 429 / 5xx / connection errors and skipping any deployment whose
+# circuit breaker is open. A provider-side 400 (bad request) fails fast instead.
+#
+# Prices are USD per million tokens. Verify them against the providers' current price pages —
+# they are what cost metering and the "$ saved by cache" numbers are computed from.
+
+routes:
+  default:
+    - name: anthropic-haiku
+      provider: litellm
+      model: anthropic/claude-haiku-4-5-20251001     # needs ANTHROPIC_API_KEY
+      timeout_seconds: 30
+      max_retries: 1
+      pricing: { input_per_mtok: 1.00, output_per_mtok: 5.00 }
+    - name: openai-mini
+      provider: litellm
+      model: openai/gpt-4.1-mini                     # needs OPENAI_API_KEY
+      timeout_seconds: 30
+      pricing: { input_per_mtok: 0.40, output_per_mtok: 1.60 }
+    - name: local-vllm
+      provider: litellm
+      model: hosted_vllm/Qwen/Qwen2.5-7B-Instruct    # self-hosted, OpenAI-compatible
+      api_base: http://vllm:8000/v1
+      timeout_seconds: 60
+      pricing: { input_per_mtok: 0.0, output_per_mtok: 0.0 }
+
+  # Offline routes: no API keys, no spend. Used by the demo, load tests and chaos tests.
+  mock:
+    - name: mock-primary
+      provider: mock
+      model: mock-1
+      options: { latency_ms: 80 }
+      pricing: { input_per_mtok: 1.00, output_per_mtok: 5.00 }
+
+  # Primary fails 100% of the time -> every request exercises fallback, then the breaker opens.
+  chaos:
+    - name: mock-broken
+      provider: mock
+      model: mock-broken
+      options: { latency_ms: 20, failure_rate: 1.0 }
+      pricing: { input_per_mtok: 1.00, output_per_mtok: 5.00 }
+    - name: mock-primary
+      provider: mock
+      model: mock-1
+      options: { latency_ms: 80 }
+      pricing: { input_per_mtok: 1.00, output_per_mtok: 5.00 }
