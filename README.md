@@ -1,5 +1,7 @@
 # NexusGate
 
+*A self-hosted gateway that turns "call an LLM" into a production system — provider fallback, semantic caching, retrieval, and cost/latency observability, all behind one API.*
+
 **A production-grade LLM gateway and RAG backend.** NexusGate exposes one OpenAI-compatible API in front of several model providers. It falls back automatically when a provider fails and trips a circuit breaker when one keeps failing. Near-duplicate prompts are answered from a tenant-isolated semantic cache, so they cost nothing. Every request is authenticated, rate-limited, metered for tokens and dollars, and exported as Prometheus metrics.
 
 ```mermaid
@@ -31,7 +33,7 @@ flowchart LR
 | 7 | Locust load test, breaking point, chaos test | 🟡 `chaos` route + fallback tests done |
 | 8 | README polish, demo GIF, live deployment | ⏳ |
 
-**Quality:** 96 tests (unit + integration + provider contract tests), **95.7% coverage**, ruff-clean. No test touches the network or spends API credits.
+**Quality:** 98 tests (unit + integration + provider contract tests), **97% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
 
 ## Quickstart
 
