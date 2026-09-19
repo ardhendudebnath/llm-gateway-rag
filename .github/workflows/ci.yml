@@ -36,16 +36,31 @@ jobs:
           name: coverage
           path: coverage.xml
 
-  docker:
+  image:
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: false
-          tags: nexusgate:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Build the API image with Podman
+        run: podman build --tag localhost/nexusgate-api:ci --file Containerfile .
+      - name: The image starts and the app imports
+        run: podman run --rm localhost/nexusgate-api:ci python -c "import app.main"
+
+  k8s:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C "$HOME/.local/bin" kubeconform
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Render and validate manifests (base + kind overlay)
+        run: |
+          for dir in infra/k8s/base infra/k8s/overlays/kind; do
+            echo "== $dir"
+            kubectl kustomize "$dir" | kubeconform -strict -summary -
+          done
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh

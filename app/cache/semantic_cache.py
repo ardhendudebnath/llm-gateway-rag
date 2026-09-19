@@ -148,15 +148,21 @@ class RediSearchIndex:
             return
         except ResponseError:
             pass
-        await self._redis.ft(INDEX_NAME).create_index(
-            [
-                TagField("ns"),
-                VectorField(
-                    "vec", "HNSW", {"TYPE": "FLOAT32", "DIM": dim, "DISTANCE_METRIC": "COSINE"}
-                ),
-            ],
-            definition=IndexDefinition(prefix=[f"{PREFIX}:e:"], index_type=IndexType.HASH),
-        )
+        try:
+            await self._redis.ft(INDEX_NAME).create_index(
+                [
+                    TagField("ns"),
+                    VectorField(
+                        "vec", "HNSW", {"TYPE": "FLOAT32", "DIM": dim, "DISTANCE_METRIC": "COSINE"}
+                    ),
+                ],
+                definition=IndexDefinition(prefix=[f"{PREFIX}:e:"], index_type=IndexType.HASH),
+            )
+        except ResponseError as e:
+            # Replicas starting together all see "no index" and race to create it; losing that
+            # race is success, not a reason to fail startup.
+            if "already exists" not in str(e).lower():
+                raise
 
     async def nearest(self, ns: str, vec: np.ndarray) -> tuple[str, float] | None:
         from redis.commands.search.query import Query

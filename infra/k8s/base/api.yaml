@@ -1,0 +1,123 @@
+# NexusGate API. Two replicas: rate limiting and the semantic cache live in Redis, so they are
+# shared correctly across replicas; circuit breakers are per replica by design (see README).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        # The app builds the RediSearch index at startup, so wait for Redis instead of crash-looping.
+        - name: wait-for-redis
+          image: nexusgate-api
+          command:
+            - python
+            - -c
+            - |
+              import os, time, redis
+              r = redis.Redis.from_url(os.environ["NEXUSGATE_REDIS_URL"], socket_timeout=2)
+              for _ in range(90):
+                  try:
+                      r.ping()
+                      break
+                  except redis.RedisError:
+                      time.sleep(2)
+              else:
+                  raise SystemExit("redis not reachable after 180s")
+          envFrom:
+            - configMapRef:
+                name: nexusgate-config
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      containers:
+        - name: api
+          image: nexusgate-api # overlays set the registry and tag
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: nexusgate-config
+            - secretRef:
+                name: nexusgate-secrets
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi # LiteLLM is a large import; no CPU limit, to avoid throttling
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  labels:
+    app.kubernetes.io/name: api
+spec:
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+# Headless Service: DNS returns one A record per ready API pod. Prometheus scrapes each pod through
+# it, because every replica keeps its own counters and scraping the load-balanced `api` Service
+# would sample a random pod each time.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-headless
+  labels:
+    app.kubernetes.io/name: api
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

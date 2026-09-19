@@ -1,10 +1,12 @@
 import numpy as np
 import pytest
+from redis.exceptions import ResponseError
 
 from app.cache.embeddings import HashingEmbedder
 from app.cache.semantic_cache import (
     BruteForceIndex,
     CachedCompletion,
+    RediSearchIndex,
     SemanticCache,
     namespace_for,
 )
@@ -157,3 +159,40 @@ async def test_hashing_embedder_is_normalised_and_deterministic():
     assert np.linalg.norm(a) == pytest.approx(1.0, abs=1e-5)
     assert float(a @ b) == pytest.approx(1.0, abs=1e-5)
     assert float(np.linalg.norm(await emb.embed(""))) == 0.0
+
+
+class FakeSearch:
+    """Stands in for ``redis.ft(...)``: no index exists yet; create_index fails as configured."""
+
+    def __init__(self, create_error: Exception | None):
+        self._create_error = create_error
+        self.create_calls = 0
+
+    async def info(self):
+        raise ResponseError("Unknown index name")
+
+    async def create_index(self, *args, **kwargs):
+        self.create_calls += 1
+        if self._create_error is not None:
+            raise self._create_error
+
+
+class FakeSearchRedis:
+    def __init__(self, search: FakeSearch):
+        self._search = search
+
+    def ft(self, name: str) -> FakeSearch:
+        return self._search
+
+
+async def test_redisearch_setup_tolerates_losing_the_create_race():
+    # Two API replicas start together: both see no index, and the other one creates it first.
+    search = FakeSearch(ResponseError("Index already exists"))
+    await RediSearchIndex(FakeSearchRedis(search)).setup(dim=8)
+    assert search.create_calls == 1
+
+
+async def test_redisearch_setup_still_raises_other_errors():
+    search = FakeSearch(ResponseError("Invalid field type"))
+    with pytest.raises(ResponseError, match="Invalid field type"):
+        await RediSearchIndex(FakeSearchRedis(search)).setup(dim=8)

@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: nexusgate-api
+    metrics_path: /metrics
+    # One target per API pod, discovered through the headless Service's A records. Each replica
+    # has its own counters; scraping the load-balanced `api` Service would hit a random pod.
+    dns_sd_configs:
+      - names: ["api-headless.nexusgate.svc.cluster.local"]
+        type: A
+        port: 8000
+        refresh_interval: 15s

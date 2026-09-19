@@ -4,8 +4,10 @@
 tests
 eval
 infra
+scripts
 **/__pycache__
 .pytest_cache
 .ruff_cache
 .coverage
 .env
+*.tar
