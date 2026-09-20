@@ -109,7 +109,7 @@ kc apply -k "$ROOT/infra/k8s/overlays/kind"
 # The tag is always :dev, so restart the API onto the image that was just loaded.
 kc -n "$NS" rollout restart deployment/api deployment/worker
 for workload in statefulset/redis statefulset/qdrant deployment/api deployment/worker \
-  deployment/prometheus deployment/grafana; do
+  deployment/prometheus deployment/alertmanager deployment/grafana; do
   kc -n "$NS" rollout status "$workload" --timeout=300s
 done
 

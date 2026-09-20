@@ -1,0 +1,74 @@
+# Alert on symptoms a user would feel, not on causes (see README, observability standards).
+# Every alert carries a summary and a runbook-style description; Alertmanager posts them to the
+# gateway's own webhook, which logs and counts them (swap the receiver for Slack/Discord).
+groups:
+  - name: nexusgate
+    rules:
+      - alert: NexusGateHighErrorRate
+        # The spec's error-budget alert: more than 5% of requests failing for two minutes.
+        expr: |
+          sum(rate(nexusgate_http_requests_total{status=~"5.."}[2m]))
+            / sum(rate(nexusgate_http_requests_total[2m])) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Over 5% of requests are failing"
+          description: "5xx rate is {{ $value | humanizePercentage }} over the last 2 minutes."
+
+      - alert: NexusGateAllProvidersFailed
+        expr: increase(nexusgate_llm_all_providers_failed_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A route exhausted every provider"
+          description: "Route {{ $labels.route }} had no deployment left to try."
+
+      - alert: NexusGateCircuitBreakerOpen
+        expr: max by (deployment) (nexusgate_circuit_open) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.deployment }}"
+          description: "Traffic is being skipped for this deployment; fallbacks are carrying it."
+
+      - alert: NexusGateSlowRequests
+        expr: |
+          histogram_quantile(
+            0.95, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency above 2s"
+          description: "p95 request latency is {{ $value | humanizeDuration }}."
+
+      - alert: NexusGateIngestBacklog
+        expr: sum(nexusgate_rag_queue_depth) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ingestion queue is backing up"
+          description: "{{ $value }} jobs are waiting; consider scaling the worker Deployment."
+
+      - alert: NexusGateDeadLetteredJobs
+        expr: nexusgate_rag_dead_letter_depth > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ingestion jobs are in the dead-letter queue"
+          description: "{{ $value }} jobs failed for good. Inspect GET /v1/admin/dead-letters."
+
+      - alert: NexusGateApiDown
+        expr: up{job="nexusgate-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "An API pod is not being scraped"
+          description: "{{ $labels.instance }} has been unreachable for a minute."

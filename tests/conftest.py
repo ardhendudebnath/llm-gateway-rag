@@ -1,6 +1,7 @@
 """Shared fixtures. Nothing here touches the network or a real Redis."""
 
 from collections import defaultdict, deque
+from contextlib import contextmanager
 
 import fakeredis
 import httpx
@@ -14,6 +15,7 @@ from app.gateway.providers import ProviderError
 from app.gateway.routing_config import Deployment, RoutingConfig
 from app.gateway.schemas import ChatRequest, ProviderResponse, Usage
 from app.main import create_app
+from app.observability.tracing import ChatTrace
 
 ADMIN_TOKEN = "test-admin-token"
 
@@ -96,13 +98,55 @@ async def redis_pair():
     await raw.aclose()
 
 
+class RecordingTracer:
+    """Stands in for the Langfuse tracer: keeps what would have been sent."""
+
+    enabled = True
+
+    def __init__(self):
+        self.chats: list[dict] = []
+        self.spans: list[tuple[str, dict]] = []
+        self.shutdown_calls = 0
+
+    @contextmanager
+    def chat(self, *, tenant_id, key_id, route, messages, model_parameters=None):
+        trace = ChatTrace(route=route)
+        self.chats.append(
+            {
+                "tenant_id": tenant_id,
+                "key_id": key_id,
+                "messages": list(messages),
+                "model_parameters": model_parameters,
+                "trace": trace,
+            }
+        )
+        try:
+            yield trace
+        except Exception as e:  # mirrors LangfuseTracer, which records then re-raises
+            trace.error = f"{type(e).__name__}: {e}"
+            raise
+
+    @contextmanager
+    def span(self, name: str, **metadata):
+        self.spans.append((name, metadata))
+        yield
+
+    def shutdown(self) -> None:
+        self.shutdown_calls += 1
+
+
 @pytest.fixture
 def provider() -> ScriptedProvider:
     return ScriptedProvider()
 
 
 @pytest.fixture
-async def services(settings, redis_pair, provider):
+def tracer() -> RecordingTracer:
+    return RecordingTracer()
+
+
+@pytest.fixture
+async def services(settings, redis_pair, provider, tracer):
     text, raw = redis_pair
     return await build_services(
         settings,
@@ -111,6 +155,7 @@ async def services(settings, redis_pair, provider):
         providers={"fake": provider},
         routing=make_routing(),
         embedder=HashingEmbedder(),
+        tracer=tracer,
     )
 
 

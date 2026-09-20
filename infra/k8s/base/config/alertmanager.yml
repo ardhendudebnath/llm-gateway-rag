@@ -1,0 +1,29 @@
+# Alerts go to the gateway's own webhook, which logs and counts them, so the whole path can be
+# demonstrated without an external account. For Slack or Discord, replace the receiver below with
+# `slack_configs` / a Discord webhook URL and keep everything else as it is.
+global:
+  resolve_timeout: 2m
+
+route:
+  receiver: nexusgate
+  group_by: [alertname]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+
+receivers:
+  - name: nexusgate
+    webhook_configs:
+      - url: http://api:8000/v1/alerts/webhook
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: alertmanager
+            # The admin token, mounted from the nexusgate-secrets Secret.
+            password_file: /etc/alertmanager/secrets/admin-token
+
+inhibit_rules:
+  # While the API is down, don't also page about the error rate it causes.
+  - source_matchers: [alertname = NexusGateApiDown]
+    target_matchers: [severity = warning]
+    equal: [namespace]

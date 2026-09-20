@@ -12,6 +12,7 @@ from app.core.security import Principal
 from app.gateway.schemas import ChatMessage, ChatRequest
 from app.gateway.service import ChatService
 from app.observability import metrics
+from app.observability.tracing import NoopTracer, Tracer
 from app.rag.retrieval import RetrievedChunk, Retriever
 from app.rag.schemas import AnswerRequest, AnswerResponse, Citation
 
@@ -48,14 +49,19 @@ def build_messages(question: str, hits: list[RetrievedChunk]) -> list[ChatMessag
 
 
 class RagService:
-    def __init__(self, retriever: Retriever, chat: ChatService):
+    def __init__(self, retriever: Retriever, chat: ChatService, tracer: Tracer | None = None):
         self._retriever = retriever
         self._chat = chat
+        self._tracer = tracer or NoopTracer()
 
     async def answer(self, principal: Principal, request: AnswerRequest) -> AnswerResponse:
-        hits = await self._retriever.search(
-            principal.tenant_id, request.question, request.top_k, rerank=request.rerank
-        )
+        # A span around retrieval, so the completion below nests under it in the trace tree.
+        with self._tracer.span(
+            "rag.retrieve", question=request.question, top_k=request.top_k, rerank=request.rerank
+        ):
+            hits = await self._retriever.search(
+                principal.tenant_id, request.question, request.top_k, rerank=request.rerank
+            )
         if not hits:
             metrics.RAG_EMPTY_RETRIEVALS.inc()
             return AnswerResponse(answer=NO_CONTEXT_ANSWER, citations=[])

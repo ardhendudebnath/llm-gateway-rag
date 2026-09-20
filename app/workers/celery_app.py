@@ -72,7 +72,9 @@ def _shutdown_worker(**_kwargs) -> None:
         _run(_services.aclose())
 
 
-@celery_app.task(bind=True, name=TASK_INGEST, max_retries=None)
+# The service stops retrying at `job_max_attempts` and fails the job itself, so Celery's own
+# ceiling should never be reached; it is here so a bug can't turn into an endless retry loop.
+@celery_app.task(bind=True, name=TASK_INGEST, max_retries=_settings.job_max_attempts - 1)
 def ingest_document(self, job_id: str, tenant_id: str, payload_id: str) -> dict:
     """Run one ingestion attempt. Retry policy and failure handling live in IngestionJobService."""
     services = _get_services()

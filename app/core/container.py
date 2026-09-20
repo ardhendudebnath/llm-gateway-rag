@@ -4,12 +4,14 @@ Everything is injectable so tests can swap in fakeredis, fake providers, an in-m
 deterministic embedder without monkeypatching.
 """
 
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 
 from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
+from app import __version__
 from app.cache.semantic_cache import BruteForceIndex, RediSearchIndex, SemanticCache
 from app.core.config import Settings
 from app.core.embeddings import Embedder, FastEmbedEmbedder, HashingEmbedder
@@ -21,6 +23,7 @@ from app.gateway.providers import LiteLLMProvider, MockProvider, Provider
 from app.gateway.router import LLMRouter
 from app.gateway.routing_config import RoutingConfig
 from app.gateway.service import ChatService
+from app.observability.tracing import LangfuseTracer, NoopTracer, Tracer
 from app.rag.chunking import build_chunker
 from app.rag.documents import DocumentRegistry
 from app.rag.ingestion import IngestionService
@@ -32,6 +35,8 @@ from app.workers.jobs import DeadLetterQueue, JobStore
 from app.workers.payloads import PayloadStore
 from app.workers.queue import CeleryJobQueue, InlineJobQueue, JobQueue
 from app.workers.service import IngestionJobService
+
+log = logging.getLogger(__name__)
 
 _INSECURE_DEFAULTS = {
     "admin_token": Settings.model_fields["admin_token"].default.get_secret_value(),
@@ -63,9 +68,11 @@ class Services:
     limiter: TokenBucketLimiter
     meter: UsageMeter
     chat: ChatService
+    tracer: Tracer
     rag: RagComponents
 
     async def aclose(self) -> None:
+        self.tracer.shutdown()  # flush buffered traces before the process exits
         await self.rag.store.aclose()
         await self.redis.aclose()
         if self.cache_redis is not self.redis:
@@ -96,6 +103,26 @@ def build_reranker(settings: Settings) -> Reranker | None:
     return None
 
 
+def build_tracer(settings: Settings) -> Tracer:
+    if not settings.tracing_configured:
+        return NoopTracer()
+    try:
+        from langfuse import Langfuse, propagate_attributes  # heavy import; only when configured
+
+        client = Langfuse(
+            public_key=settings.langfuse_public_key,
+            secret_key=settings.langfuse_secret_key.get_secret_value(),
+            host=settings.langfuse_host,
+            environment=settings.langfuse_environment or settings.env,
+            release=__version__,
+        )
+        log.info("LLM tracing enabled", extra={"langfuse_host": settings.langfuse_host})
+        return LangfuseTracer(client, propagate_attributes)
+    except Exception:
+        log.exception("could not start Langfuse tracing; continuing without it")
+        return NoopTracer()
+
+
 def build_job_queue(settings: Settings) -> JobQueue:
     if settings.worker_mode == "celery":
         from app.workers.celery_app import celery_app  # imported lazily: only workers need Celery
@@ -117,6 +144,7 @@ async def build_rag(
     cache_redis: Redis,
     embedder: Embedder,
     chat: ChatService,
+    tracer: Tracer,
     *,
     qdrant: AsyncQdrantClient | None = None,
     reranker: Reranker | None = None,
@@ -162,7 +190,7 @@ async def build_rag(
         documents=documents,
         ingestion=ingestion,
         retriever=retriever,
-        answers=RagService(retriever, chat),
+        answers=RagService(retriever, chat, tracer),
         jobs=jobs,
         job_store=job_store,
         dead_letters=dead_letters,
@@ -180,8 +208,10 @@ async def build_services(
     qdrant: AsyncQdrantClient | None = None,
     reranker: Reranker | None = None,
     job_queue: JobQueue | None = None,
+    tracer: Tracer | None = None,
 ) -> Services:
     check_production_secrets(settings)
+    tracer = tracer or build_tracer(settings)
 
     # Two clients over the same server: string-decoding for app data, raw bytes for vectors.
     redis = redis or Redis.from_url(settings.redis_url, decode_responses=True)
@@ -216,7 +246,7 @@ async def build_services(
         await cache.setup()
 
     meter = UsageMeter(redis, settings.usage_retention_days)
-    chat = ChatService(router, cache, meter)
+    chat = ChatService(router, cache, meter, tracer)
     return Services(
         settings=settings,
         redis=redis,
@@ -230,12 +260,14 @@ async def build_services(
         limiter=TokenBucketLimiter(redis),
         meter=meter,
         chat=chat,
+        tracer=tracer,
         rag=await build_rag(
             settings,
             redis,
             cache_redis,
             embedder,
             chat,
+            tracer,
             qdrant=qdrant,
             reranker=reranker,
             job_queue=job_queue,

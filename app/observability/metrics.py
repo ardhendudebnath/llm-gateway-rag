@@ -41,6 +41,12 @@ CACHE_COST_SAVED = Counter(
 
 RATE_LIMITED = Counter("nexusgate_rate_limited_total", "Requests rejected by the rate limiter")
 
+ALERTS_RECEIVED = Counter(
+    "nexusgate_alerts_received_total",
+    "Alerts delivered by Alertmanager to the gateway's webhook",
+    ["alertname", "status"],
+)
+
 RAG_DOCUMENTS_INGESTED = Counter("nexusgate_rag_documents_ingested_total", "Documents ingested")
 RAG_CHUNKS_INGESTED = Counter("nexusgate_rag_chunks_ingested_total", "Chunks embedded and stored")
 RAG_INGEST_LATENCY = Histogram(

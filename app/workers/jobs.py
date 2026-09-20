@@ -1,7 +1,8 @@
 """Ingestion job records and the dead-letter queue, both in Redis.
 
     ragjob:{tenant}:{job_id}   STRING  IngestJob JSON, expires after the retention window
-    ragjobs:{tenant}           ZSET    job_id -> created_at (newest-first listing)
+    ragjobs:{tenant}           ZSET    job_id -> sequence number (newest-first listing)
+    ragjobs:seq                STRING  the counter behind those sequence numbers
     ragjobs:dlq                LIST    jobs that exhausted their retries, or failed permanently
     ragjobs:stats              HASH    outcome counters + total processing time
 
@@ -18,6 +19,7 @@ from redis.asyncio import Redis
 
 DLQ_KEY = "ragjobs:dlq"
 STATS_KEY = "ragjobs:stats"
+SEQUENCE_KEY = "ragjobs:seq"
 OUTCOMES = ("submitted", "done", "failed", "retried")
 
 
@@ -41,6 +43,9 @@ class IngestJob(BaseModel):
     chunks: int | None = None
     error: str | None = None
     retryable: bool | None = Field(default=None, description="Set when a job fails.")
+    request_id: str | None = Field(
+        default=None, description="The upload request's id, so worker logs match the API's."
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -60,9 +65,13 @@ class JobStore:
 
     async def save(self, job: IngestJob) -> IngestJob:
         job.updated_at = datetime.now(UTC)
+        # Order by a counter, not by created_at: two jobs submitted in the same clock tick would
+        # otherwise sort arbitrarily (Windows clocks tick about every 15 ms). `nx` keeps a job's
+        # original position when it is saved again on each status change.
+        sequence = await self._redis.incr(SEQUENCE_KEY)
         pipe = self._redis.pipeline(transaction=True)
         pipe.set(_job_key(job.tenant_id, job.job_id), job.model_dump_json(), ex=self._retention)
-        pipe.zadd(_index_key(job.tenant_id), {job.job_id: job.created_at.timestamp()})
+        pipe.zadd(_index_key(job.tenant_id), {job.job_id: sequence}, nx=True)
         pipe.expire(_index_key(job.tenant_id), self._retention)
         await pipe.execute()
         return job

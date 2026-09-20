@@ -1,4 +1,8 @@
-"""Chat orchestration: semantic cache -> router (fallback chain) -> cache fill -> metering."""
+"""Chat orchestration: semantic cache -> router (fallback chain) -> cache fill -> metering.
+
+Every completion, cache hit included, produces one trace (Langfuse when configured) and one
+structured log line carrying the request id, so cost and latency are visible in both places.
+"""
 
 import logging
 import time
@@ -16,19 +20,41 @@ from app.gateway.schemas import (
     UsageOut,
 )
 from app.observability import metrics
+from app.observability.tracing import ChatTrace, NoopTracer, Tracer
 
 log = logging.getLogger(__name__)
 
 
 class ChatService:
-    def __init__(self, router: LLMRouter, cache: SemanticCache | None, meter: UsageMeter):
+    def __init__(
+        self,
+        router: LLMRouter,
+        cache: SemanticCache | None,
+        meter: UsageMeter,
+        tracer: Tracer | None = None,
+    ):
         self._router = router
         self._cache = cache
         self._meter = meter
+        self._tracer = tracer or NoopTracer()
 
     async def complete(self, principal: Principal, request: ChatRequest) -> ChatResponse:
         if request.model not in self._router.config.routes:
             raise UnknownModelError(request.model)
+        with self._tracer.chat(
+            tenant_id=principal.tenant_id,
+            key_id=principal.key_id,
+            route=request.model,
+            messages=[m.model_dump() for m in request.messages],
+            model_parameters={"temperature": request.temperature, "max_tokens": request.max_tokens},
+        ) as trace:
+            response = await self._complete(principal, request, trace)
+            _log_completion(principal, trace, response.nexusgate.latency_ms)
+            return response
+
+    async def _complete(
+        self, principal: Principal, request: ChatRequest, trace: ChatTrace
+    ) -> ChatResponse:
         start = time.perf_counter()
         use_cache = self._cache is not None and request.cache
 
@@ -38,6 +64,12 @@ class ChatService:
                 cached = hit.completion
                 metrics.CACHE_LOOKUPS.labels("hit").inc()
                 metrics.CACHE_COST_SAVED.inc(cached.cost_usd)
+                trace.output = cached.content
+                trace.model = cached.model
+                trace.cached = True
+                trace.cache_similarity = hit.similarity
+                trace.prompt_tokens = cached.prompt_tokens
+                trace.completion_tokens = cached.completion_tokens
                 await self._meter.record(
                     principal.key_id,
                     prompt_tokens=0,
@@ -64,6 +96,13 @@ class ChatService:
 
         result = await self._router.complete(request)
         resp = result.response
+        trace.output = resp.content
+        trace.model = resp.model
+        trace.deployment = result.deployment.name
+        trace.prompt_tokens = resp.usage.prompt_tokens
+        trace.completion_tokens = resp.usage.completion_tokens
+        trace.cost_usd = result.cost_usd
+        trace.attempts = [a.model_dump() for a in result.attempts]
 
         if use_cache:
             await self._store(
@@ -117,6 +156,25 @@ class ChatService:
             await self._cache.store(principal.tenant_id, request, completion)
         except Exception:
             log.exception("semantic cache store failed")
+
+
+def _log_completion(principal: Principal, trace: ChatTrace, latency_ms: float) -> None:
+    """One line per completion. The request id ties it to the access log and the Langfuse trace."""
+    log.info(
+        "chat completion",
+        extra={
+            "tenant_id": principal.tenant_id,
+            "key_id": principal.key_id,
+            "route": trace.route,
+            "deployment": trace.deployment,
+            "cached": trace.cached,
+            "model": trace.model,
+            "prompt_tokens": trace.prompt_tokens,
+            "completion_tokens": trace.completion_tokens,
+            "cost_usd": round(trace.cost_usd, 8),
+            "latency_ms": latency_ms,
+        },
+    )
 
 
 def _build_response(

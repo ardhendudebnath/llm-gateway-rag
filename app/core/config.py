@@ -75,6 +75,17 @@ class Settings(BaseSettings):
     # --- metering ---
     usage_retention_days: int = 90
 
+    # --- tracing (optional; without Langfuse keys the gateway traces nothing) ---
+    tracing_enabled: bool = True
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: SecretStr | None = None
+    langfuse_host: str = "https://cloud.langfuse.com"
+    langfuse_environment: str | None = None  # defaults to `env`
+
+    @property
+    def tracing_configured(self) -> bool:
+        return bool(self.tracing_enabled and self.langfuse_public_key and self.langfuse_secret_key)
+
     @property
     def is_prod(self) -> bool:
         return self.env == "prod"

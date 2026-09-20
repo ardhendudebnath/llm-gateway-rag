@@ -22,6 +22,8 @@ flowchart LR
     W --> QD
     W -. failed after retries .-> DLQ[[Dead-letter queue]]
     G --> P[Prometheus → Grafana]
+    P --> AM[Alertmanager] -->|webhook| G
+    G -. optional .-> LF[Langfuse traces]
 ```
 <sub>Dashed components are on the roadmap below.</sub>
 
@@ -33,15 +35,15 @@ flowchart LR
 | 2 | Semantic cache, API keys + JWT, per-key token-bucket rate limiting, cost metering | ✅ done |
 | 3–4 | RAG: ingestion → chunking → embedding → Qdrant → rerank; P@5/R@5 eval set | ✅ done: recall@5 **1.000**, MRR **0.990** on 48 labelled questions ([eval](eval/README.md)) |
 | 5 | Celery workers: ingestion off the request path, job status, DLQ + backoff | ✅ done |
-| 6 | Langfuse tracing, Grafana dashboard, error-budget alert | ⏳ next — Prometheus metrics (incl. queue depth) + JSON logs done |
-| 7 | Locust load test, breaking point, chaos test | 🟡 `chaos` route + fallback tests done |
+| 6 | Langfuse tracing, Grafana dashboard, error-rate alert | ✅ done |
+| 7 | Locust load test, breaking point, chaos test | ⏳ next — `chaos` route + fallback tests done |
 | 8 | README polish, demo GIF, live deployment | ⏳ |
 
-**Quality:** 174 tests (unit + integration + provider contract tests), **97% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
+**Quality:** 195 tests (unit + integration + provider contract tests), **94% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
 
 ## Quickstart
 
-The whole stack (2 API replicas, a Celery worker, Redis, Qdrant, Prometheus, Grafana) runs on a local Kubernetes cluster: [kind](https://kind.sigs.k8s.io/) on [Podman](https://podman.io/). No Docker needed.
+The whole stack (2 API replicas, a Celery worker, Redis, Qdrant, Prometheus, Alertmanager, Grafana) runs on a local Kubernetes cluster: [kind](https://kind.sigs.k8s.io/) on [Podman](https://podman.io/). No Docker needed.
 
 **Prerequisites:** Podman, kind and kubectl. On Windows: `winget install RedHat.Podman Kubernetes.kind Kubernetes.kubectl` (Podman uses WSL2). If PowerShell blocks the script, run it as `powershell -ExecutionPolicy Bypass -File .\scripts\cluster-up.ps1`.
 
@@ -52,7 +54,7 @@ cp .env.example .env              # optional: ANTHROPIC_API_KEY / OPENAI_API_KEY
 
 That one command creates a rootful Podman machine if needed, then a kind cluster. It builds the image from the [`Containerfile`](Containerfile) with Podman, loads it into kind, creates the Secret from `.env`, and applies the [kustomize overlay](infra/k8s/overlays/kind). Admin, JWT and Qdrant secrets missing from `.env` are generated, and the admin token is printed at the end. The embedding and reranking models are baked into the image, so pods never download weights. Re-running rebuilds the image and rolls the API. `scripts/cluster-down.sh` (or `.ps1`) deletes the cluster.
 
-API docs: http://localhost:8000/docs · Prometheus: http://localhost:9090 · Grafana: http://localhost:3000
+API docs: http://localhost:8000/docs · Prometheus: http://localhost:9090 · Grafana: http://localhost:3000 (the **NexusGate** dashboard is provisioned automatically)
 
 Verify the running stack end to end (mock routes only, no API keys, no spend):
 
@@ -138,6 +140,8 @@ uvicorn app.main:create_app --factory --reload               # needs a Redis on 
 | `POST/GET/DELETE /v1/admin/keys` | admin token | Issue, list, revoke API keys |
 | `GET /v1/admin/providers` | admin token | Route table + live circuit-breaker states |
 | `GET/DELETE /v1/admin/dead-letters` | admin token | Jobs that failed for good; inspect or clear |
+| `GET /v1/admin/alerts` | admin token | Alerts Alertmanager has delivered, newest first |
+| `POST /v1/alerts/webhook` | basic auth | Alertmanager receiver (admin token as the password) |
 | `DELETE /v1/admin/cache` | admin token | Purge the whole cache |
 | `GET /healthz`, `/readyz`, `/metrics` | none | Liveness, readiness (Redis + Qdrant), Prometheus |
 
@@ -167,6 +171,12 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Retrieved text is untrusted.** The prompt tells the model to treat passages as data and ignore instructions inside them. Uploads are type-checked, size-capped, and rejected if they contain NUL bytes (binaries disguised as text).
 - **A 4× latency fix came from profiling.** Reranking first measured ~1 s per query: ONNX Runtime gave each model a 24-thread pool and the two pools fought over the CPU. Capping threads per model (`NEXUSGATE_MODEL_THREADS=4`) brought it to ~230 ms with identical scores.
 
+**Observability that can't take the service down.** Every completion produces a Langfuse generation (prompt, response, model, tokens, cost, cache hit) *and* a structured log line, both carrying the request id.
+- **Tracing is optional and never fatal.** Without Langfuse credentials the gateway uses a no-op tracer. Every call into the SDK is guarded, and tests cover the cases where Langfuse can't be reached or fails mid-request: the request is still served.
+- **One request id, end to end.** It is generated (or accepted) at the edge, carried in a `ContextVar` through gateway, router and provider, stored on the ingestion job, and restored inside the worker, so an upload and the job that fulfils it share one id across processes.
+- **Alerts go somewhere by default.** Prometheus [rules](infra/k8s/base/config/alert-rules.yml) cover error rate, exhausted providers, open breakers, p95 latency, queue backlog, dead letters and a missing target. Alertmanager posts them to the gateway's own webhook, which logs and counts them, so the whole path works out of the box; switching to Slack or Discord is a receiver change, not a code change.
+- **The dashboard ships with the stack.** [One JSON file](infra/k8s/base/config/grafana-dashboard.json) provisioned into Grafana: request rate, error rate, latency percentiles, provider outcomes and latency, cost per hour against cache savings, queue and dead-letter depth, and retrieval latency by stage.
+
 **Ingestion runs in workers, not in the request.** Uploading returns **202** with a job id; a Celery worker does the parsing, chunking and embedding. A 10 MB PDF no longer holds an API worker for seconds, and ingestion capacity scales by scaling the worker Deployment alone.
 - **The file doesn't travel through the broker.** Bytes are parked in Redis under a TTL and the queued message carries only a pointer. Celery messages stay small, and an upload whose job never runs expires by itself instead of leaking.
 - **Two failure classes, opposite handling.** A bad upload (unsupported, no text, expired payload) fails immediately: retrying it would fail identically. An infrastructure error (Qdrant down, Redis blip) is retried with exponential backoff. Either way the final state lands in the [dead-letter queue](app/workers/jobs.py) with the reason, visible through the admin API.
@@ -192,10 +202,11 @@ app/
   cache/          semantic cache (bruteforce / RediSearch indexes)
   rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
   workers/        job records + DLQ, upload payloads, queues (celery / inline), Celery entry point
-  observability/  Prometheus metrics, request-ID middleware
+  observability/  Prometheus metrics, request-ID middleware, Langfuse tracing
 config/routes.yaml  route aliases → ordered fallback chains, with per-deployment pricing
 tests/unit, tests/integration
-infra/k8s/base            kustomize base: API, worker, Redis, Qdrant, Prometheus, Grafana
+infra/k8s/base            kustomize base: API, worker, Redis, Qdrant, Prometheus,
+                          Alertmanager, Grafana + their config (rules, dashboard)
 infra/k8s/overlays/kind   local kind cluster: NodePorts, Podman-built image, cluster config
 scripts/          cluster-up / cluster-down (PowerShell + bash), end-to-end smoke test
 Containerfile     API image, built with Podman

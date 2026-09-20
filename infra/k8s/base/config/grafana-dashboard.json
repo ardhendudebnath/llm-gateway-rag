@@ -1,0 +1,240 @@
+{
+  "uid": "nexusgate",
+  "title": "NexusGate",
+  "tags": ["nexusgate"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests / sec",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_http_requests_total[1m]))",
+          "legendFormat": "requests"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Error rate (5xx, 5m)",
+      "description": "Alerts fire above 5% for 2 minutes.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(nexusgate_http_requests_total[5m])), 0.0001)",
+          "legendFormat": "error rate"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Cache hit rate (5m)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_cache_lookups_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(nexusgate_cache_lookups_total[5m])), 0.0001)",
+          "legendFormat": "hit rate"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Spend vs saved by cache",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(nexusgate_llm_cost_usd_total)",
+          "legendFormat": "spent"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(nexusgate_cache_cost_saved_usd_total)",
+          "legendFormat": "saved"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP latency (p50 / p95 / p99)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider calls by outcome",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(nexusgate_llm_calls_total[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider latency p95 by deployment",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, deployment) (rate(nexusgate_llm_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{deployment}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cost per hour, by deployment",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (deployment) (rate(nexusgate_llm_cost_usd_total[5m])) * 3600",
+          "legendFormat": "{{deployment}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(nexusgate_cache_cost_saved_usd_total[5m])) * 3600",
+          "legendFormat": "saved by cache"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Fallbacks, failures, rate limiting, open breakers",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_llm_fallbacks_total[5m]))",
+          "legendFormat": "fallbacks/s"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(nexusgate_llm_all_providers_failed_total[5m]))",
+          "legendFormat": "all-providers-failed/s"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(nexusgate_rate_limited_total[5m]))",
+          "legendFormat": "rate-limited/s"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(nexusgate_circuit_open)",
+          "legendFormat": "open breakers"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingestion jobs: queue depth, dead letters, outcomes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(nexusgate_rag_queue_depth)",
+          "legendFormat": "queued"
+        },
+        {
+          "refId": "B",
+          "expr": "nexusgate_rag_dead_letter_depth",
+          "legendFormat": "dead letters"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (outcome) (nexusgate_rag_job_totals)",
+          "legendFormat": "jobs {{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RAG retrieval latency p95 by stage",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(nexusgate_rag_stage_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Alerts received by the gateway webhook",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (alertname, status) (increase(nexusgate_alerts_received_total[5m]))",
+          "legendFormat": "{{alertname}} {{status}}"
+        }
+      ]
+    }
+  ]
+}

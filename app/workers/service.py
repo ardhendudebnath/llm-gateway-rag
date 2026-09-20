@@ -17,6 +17,7 @@ import logging
 import time
 import uuid
 
+from app.core.logging import request_id_var
 from app.observability import metrics
 from app.rag.ingestion import DocumentTooLargeError, DocumentUpload, IngestionService
 from app.rag.parsing import EmptyDocumentError, UnsupportedDocumentError
@@ -61,6 +62,7 @@ class IngestionJobService:
                 content_type=upload.content_type,
                 title=upload.title,
                 size_bytes=len(upload.data),
+                request_id=request_id_var.get(),
             )
         )
         await self._jobs.count("submitted")
@@ -80,6 +82,10 @@ class IngestionJobService:
             log.warning("ingestion job record is gone", extra={"job_id": job_id})
             return None
 
+        # Log this attempt under the request id of the upload that created the job, so one
+        # request can be followed from the API's access log into the worker's.
+        if job.request_id:
+            request_id_var.set(job.request_id)
         job.status = JobStatus.PROCESSING
         job.attempts = attempt
         await self._jobs.save(job)
