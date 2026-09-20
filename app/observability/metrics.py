@@ -54,6 +54,19 @@ RAG_STAGE_LATENCY = Histogram(
     ["stage"],  # embed_query | vector_search | rerank
     buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5),
 )
+# Job counters live in Redis (the worker process has no /metrics endpoint of its own) and are
+# published as gauges when the API is scraped, so they are correct whichever process ran the job.
+RAG_QUEUE_DEPTH = Gauge(
+    "nexusgate_rag_queue_depth", "Ingestion jobs waiting in the queue", ["queue"]
+)
+RAG_DLQ_DEPTH = Gauge("nexusgate_rag_dead_letter_depth", "Jobs in the dead-letter queue")
+RAG_JOB_TOTALS = Gauge(
+    "nexusgate_rag_job_totals", "Ingestion jobs by outcome, cumulative in Redis", ["outcome"]
+)
+RAG_JOB_SECONDS = Gauge(
+    "nexusgate_rag_job_processing_seconds_total", "Total time spent running ingestion jobs"
+)
+
 RAG_EMPTY_RETRIEVALS = Counter(
     "nexusgate_rag_empty_retrievals_total", "Answer requests where no passage matched (no LLM call)"
 )

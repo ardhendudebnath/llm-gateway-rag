@@ -40,6 +40,15 @@ def detect_kind(filename: str, content_type: str | None) -> str:
     )
 
 
+def precheck(data: bytes, filename: str, content_type: str | None) -> str:
+    """Cheap validation before a file is queued, so obvious rejects fail the upload request itself
+    instead of a background job. Returns the detected kind."""
+    kind = detect_kind(filename, content_type)
+    if kind == "text" and b"\x00" in data[:8192]:
+        raise UnsupportedDocumentError("file looks binary, not text; upload PDF, text or Markdown")
+    return kind
+
+
 def parse_document(data: bytes, filename: str, content_type: str | None) -> list[Section]:
     kind = detect_kind(filename, content_type)
     sections = _parse_pdf(data) if kind == "pdf" else [Section(_decode_text(data))]

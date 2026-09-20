@@ -4,7 +4,7 @@
 # Secrets (admin token, JWT secret, provider API keys) are NOT in git: the cluster-up scripts create
 # the `nexusgate-secrets` Secret from .env, generating random values for anything missing.
 #
-# Later roadmap weeks add: celery workers (ingestion), langfuse (LLM tracing).
+# Later roadmap weeks add: langfuse (LLM tracing).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -18,6 +18,7 @@ resources:
   - redis.yaml
   - qdrant.yaml
   - api.yaml
+  - worker.yaml
   - prometheus.yaml
   - grafana.yaml
 
@@ -32,6 +33,7 @@ configMapGenerator:
       - NEXUSGATE_QDRANT_URL=http://qdrant:6333
       - NEXUSGATE_EMBEDDING_BACKEND=fastembed
       - NEXUSGATE_RAG_RERANKER=cross-encoder
+      - NEXUSGATE_WORKER_MODE=celery
   - name: prometheus-config
     files:
       - prometheus.yml=config/prometheus.yml

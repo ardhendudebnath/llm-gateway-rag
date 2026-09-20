@@ -3,7 +3,8 @@
     python scripts/smoke_test.py --admin-token <token> [--prometheus-url http://localhost:9090]
 
 Goes through the real network path: key issuance, a cache miss then a hit, fallback on the `chaos`
-route, usage metering, /metrics, RAG (upload, search, a cited answer), and (optionally) Prometheus
+route, usage metering, /metrics, RAG (upload queued to a worker, search, a cited answer), and
+(optionally) Prometheus
 scraping every API replica. It only uses the offline mock routes, so it needs no provider API keys
 and spends nothing. It cleans up the key, cache entries and document it creates, and exits non-zero
 on the first failed check.
@@ -52,7 +53,7 @@ def chat(api: httpx.Client, key: str, model: str, prompt: str, *, cache: bool) -
     )
 
 
-def check_gateway(api: httpx.Client, admin_token: str) -> None:
+def check_gateway(api: httpx.Client, admin_token: str, job_timeout: float = 60) -> None:
     admin = {"X-Admin-Token": admin_token}
     # A fresh tenant per run: the cache namespace includes the tenant, so a near-identical prompt
     # from a previous run can never turn this run's expected miss into a hit.
@@ -96,7 +97,7 @@ def check_gateway(api: httpx.Client, admin_token: str) -> None:
         check("nexusgate_http_requests_total" in metrics, "/metrics lacks nexusgate_ metrics")
         ok("/metrics exports nexusgate_* series")
 
-        check_rag(api, auth)
+        check_rag(api, auth, job_timeout)
     finally:
         api.delete("/v1/cache", headers=auth)
         api.delete(f"/v1/admin/keys/{key_id}", headers=admin)
@@ -112,16 +113,33 @@ The billing worker scales between two and eight replicas based on queue depth.
 """
 
 
-def check_rag(api: httpx.Client, auth: dict) -> None:
+def wait_for_job(api: httpx.Client, auth: dict, job_id: str, timeout_s: float) -> dict:
+    deadline = time.monotonic() + timeout_s
+    while True:
+        job = api.get(f"/v1/rag/jobs/{job_id}", headers=auth).json()
+        if job["status"] in {"done", "failed"}:
+            return job
+        if time.monotonic() > deadline:
+            raise CheckFailedError(f"ingestion job stuck in '{job['status']}' after {timeout_s}s")
+        time.sleep(1)
+
+
+def check_rag(api: httpx.Client, auth: dict, job_timeout: float) -> None:
     r = api.post(
         "/v1/rag/documents",
         headers=auth,
         files={"file": ("runbook.md", RUNBOOK, "text/markdown")},
     )
-    check(r.status_code == 201, f"RAG upload: expected 201, got {r.status_code} {r.text}")
-    doc = r.json()
+    check(r.status_code == 202, f"RAG upload: expected 202, got {r.status_code} {r.text}")
+    queued = r.json()
+    check(queued["doc_id"] is None, "a queued job should not have a document yet")
+    ok(f"RAG: upload accepted as job {queued['job_id'][:8]} ({queued['status']})")
+
+    job = wait_for_job(api, auth, queued["job_id"], job_timeout)
+    check(job["status"] == "done", f"ingestion job failed: {job.get('error')}")
+    doc = {"doc_id": job["doc_id"]}
     try:
-        ok(f"RAG: ingested '{doc['title']}' as {doc['chunks']} chunks")
+        ok(f"RAG: worker ingested it as {job['chunks']} chunks in {job['attempts']} attempt(s)")
 
         r = api.post(
             "/v1/rag/search",
@@ -172,6 +190,9 @@ def main() -> int:
     parser.add_argument("--prometheus-url", help="also check that Prometheus scrapes every pod")
     parser.add_argument("--api-replicas", type=int, default=2)
     parser.add_argument("--wait", type=float, default=120, help="seconds to wait for readiness")
+    parser.add_argument(
+        "--job-timeout", type=float, default=60, help="seconds to wait for a worker to ingest"
+    )
     args = parser.parse_args()
     if not args.admin_token:
         parser.error("--admin-token (or NEXUSGATE_ADMIN_TOKEN) is required")
@@ -181,7 +202,7 @@ def main() -> int:
         with httpx.Client(base_url=args.base_url, timeout=30) as api:
             wait_ready(api, args.wait)
             ok("/readyz: API is ready and Redis reachable")
-            check_gateway(api, args.admin_token)
+            check_gateway(api, args.admin_token, args.job_timeout)
         if args.prometheus_url:
             check_prometheus(args.prometheus_url, args.api_replicas, args.wait)
     except (CheckFailedError, httpx.HTTPError) as e:

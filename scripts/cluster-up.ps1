@@ -148,9 +148,9 @@ Write-Host ("provider keys: " + $(if ($providers) { $providers -join ", " } else
 Step "Deploy (kustomize overlay infra/k8s/overlays/kind)"
 Invoke-Native kubectl --context $Context apply -k "$Root/infra/k8s/overlays/kind"
 # The tag is always :dev, so restart the API onto the image that was just loaded.
-Invoke-Native kubectl --context $Context -n $Namespace rollout restart deployment/api
-$workloads = "statefulset/redis", "statefulset/qdrant", "deployment/api", "deployment/prometheus",
-    "deployment/grafana"
+Invoke-Native kubectl --context $Context -n $Namespace rollout restart deployment/api deployment/worker
+$workloads = "statefulset/redis", "statefulset/qdrant", "deployment/api", "deployment/worker",
+    "deployment/prometheus", "deployment/grafana"
 foreach ($workload in $workloads) {
     Invoke-Native kubectl --context $Context -n $Namespace rollout status $workload --timeout=300s
 }

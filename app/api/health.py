@@ -1,9 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from app.api.deps import get_services
 from app.core.container import Services
 
+log = logging.getLogger(__name__)
 router = APIRouter(tags=["ops"])
 
 
@@ -28,5 +31,10 @@ async def readyz(response: Response, services: Services = Depends(get_services))
 
 
 @router.get("/metrics", include_in_schema=False)
-async def prometheus_metrics() -> Response:
+async def prometheus_metrics(services: Services = Depends(get_services)) -> Response:
+    try:
+        # Queue depth and job counters live in Redis; read them at scrape time.
+        await services.rag.jobs.refresh_metrics(services.settings.ingest_queue)
+    except Exception:
+        log.exception("could not refresh job metrics; serving the rest")
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

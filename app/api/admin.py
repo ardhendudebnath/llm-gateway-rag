@@ -51,6 +51,21 @@ async def providers(services: Services = Depends(get_services)) -> dict:
     }
 
 
+@router.get("/dead-letters", summary="Ingestion jobs that failed for good")
+async def dead_letters(
+    limit: int = Query(default=50, ge=1, le=500), services: Services = Depends(get_services)
+) -> dict:
+    return {
+        "depth": await services.rag.dead_letters.depth(),
+        "jobs": await services.rag.dead_letters.list(limit),
+    }
+
+
+@router.delete("/dead-letters", summary="Clear the dead-letter queue")
+async def purge_dead_letters(services: Services = Depends(get_services)) -> dict:
+    return {"entries_deleted": await services.rag.dead_letters.purge()}
+
+
 @router.delete("/cache", summary="Purge the entire semantic cache")
 async def purge_all_cache(services: Services = Depends(get_services)) -> dict:
     if services.cache is None:

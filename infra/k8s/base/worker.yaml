@@ -1,0 +1,100 @@
+# Celery ingestion workers: the same image as the API, started with a different command.
+# Scaling this Deployment is how ingestion throughput grows; the API is unaffected.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels:
+    app.kubernetes.io/name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-deps
+          image: nexusgate-api
+          command:
+            - python
+            - -c
+            - |
+              import os, time, urllib.request, redis
+              r = redis.Redis.from_url(os.environ["NEXUSGATE_REDIS_URL"], socket_timeout=2)
+              qdrant = os.environ["NEXUSGATE_QDRANT_URL"].rstrip("/") + "/readyz"
+              for _ in range(90):
+                  try:
+                      r.ping()
+                      urllib.request.urlopen(qdrant, timeout=2)
+                      break
+                  except Exception:
+                      time.sleep(2)
+              else:
+                  raise SystemExit("redis/qdrant not reachable after 180s")
+          envFrom:
+            - configMapRef:
+                name: nexusgate-config
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      containers:
+        - name: worker
+          image: nexusgate-api # overlays set the registry and tag
+          command:
+            - celery
+            - -A
+            - app.workers.celery_app:celery_app
+            - worker
+            - --queues=ingest
+            - --concurrency=2
+            - --prefetch-multiplier=1
+            - --max-tasks-per-child=100 # recycle children so a leak can't grow unbounded
+            - --without-gossip # single worker pool: no peer chatter needed
+            - --without-mingle
+            - --loglevel=INFO
+          envFrom:
+            - configMapRef:
+                name: nexusgate-config
+            - secretRef:
+                name: nexusgate-secrets
+          livenessProbe:
+            # Ask the worker itself whether it is still accepting tasks.
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A app.workers.celery_app:celery_app inspect ping -d celery@$(hostname) -t 10
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              # Each prefork child loads the embedding and reranking models.
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

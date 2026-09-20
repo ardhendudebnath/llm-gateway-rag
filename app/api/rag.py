@@ -1,49 +1,74 @@
 """RAG endpoints. Everything is scoped to the caller's tenant: documents, search and answers."""
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
 from app.api.deps import get_services, rate_limited
 from app.core.container import Services
 from app.core.security import Principal
 from app.rag.documents import DocumentRecord
-from app.rag.ingestion import DocumentTooLargeError, DocumentUpload
-from app.rag.parsing import EmptyDocumentError, UnsupportedDocumentError
+from app.rag.ingestion import DocumentUpload
+from app.rag.parsing import UnsupportedDocumentError, precheck
 from app.rag.schemas import AnswerRequest, AnswerResponse, SearchHit, SearchRequest, SearchResponse
+from app.workers.jobs import IngestJob
 
 router = APIRouter(prefix="/v1/rag", tags=["rag"])
 
 
 @router.post(
     "/documents",
-    response_model=DocumentRecord,
-    status_code=status.HTTP_201_CREATED,
-    summary="Upload a PDF, Markdown or text file: parse, chunk, embed and index it",
+    response_model=IngestJob,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Queue a PDF, Markdown or text file for ingestion; poll the job for progress",
 )
 async def upload_document(
     file: UploadFile = File(...),
     title: str | None = Form(default=None, max_length=200),
     principal: Principal = Depends(rate_limited),
     services: Services = Depends(get_services),
-) -> DocumentRecord:
-    ingestion = services.rag.ingestion
+) -> IngestJob:
+    """Parsing, chunking and embedding run in a worker, so a big PDF never blocks the caller."""
+    max_bytes = services.rag.ingestion.max_bytes
     # Read one byte past the limit: enough to reject an oversized upload without reading it all.
-    data = await file.read(ingestion.max_bytes + 1)
-    try:
-        return await ingestion.ingest(
-            principal.tenant_id,
-            DocumentUpload(
-                filename=file.filename or "upload",
-                content_type=file.content_type,
-                data=data,
-                title=title,
-            ),
+    data = await file.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE, detail=f"document exceeds {max_bytes} bytes"
         )
-    except DocumentTooLargeError as e:
-        raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, detail=str(e)) from e
+    filename = file.filename or "upload"
+    try:
+        # Reject an unusable file now rather than through a failed job a second later.
+        precheck(data, filename, file.content_type)
     except UnsupportedDocumentError as e:
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(e)) from e
-    except EmptyDocumentError as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)) from e
+    return await services.rag.jobs.submit(
+        principal.tenant_id,
+        DocumentUpload(filename=filename, content_type=file.content_type, data=data, title=title),
+    )
+
+
+@router.get("/jobs", response_model=list[IngestJob], summary="Recent ingestion jobs")
+async def list_jobs(
+    limit: int = Query(default=20, ge=1, le=100),
+    principal: Principal = Depends(rate_limited),
+    services: Services = Depends(get_services),
+) -> list[IngestJob]:
+    return await services.rag.job_store.list(principal.tenant_id, limit)
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=IngestJob,
+    summary="One job: queued / processing / done / failed",
+)
+async def get_job(
+    job_id: str,
+    principal: Principal = Depends(rate_limited),
+    services: Services = Depends(get_services),
+) -> IngestJob:
+    job = await services.rag.job_store.get(principal.tenant_id, job_id)
+    if job is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no such job")
+    return job
 
 
 @router.get(

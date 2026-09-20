@@ -107,9 +107,9 @@ echo "provider keys: ${providers[*]:-none (mock and chaos routes only)}"
 step "Deploy (kustomize overlay infra/k8s/overlays/kind)"
 kc apply -k "$ROOT/infra/k8s/overlays/kind"
 # The tag is always :dev, so restart the API onto the image that was just loaded.
-kc -n "$NS" rollout restart deployment/api
-for workload in statefulset/redis statefulset/qdrant deployment/api deployment/prometheus \
-  deployment/grafana; do
+kc -n "$NS" rollout restart deployment/api deployment/worker
+for workload in statefulset/redis statefulset/qdrant deployment/api deployment/worker \
+  deployment/prometheus deployment/grafana; do
   kc -n "$NS" rollout status "$workload" --timeout=300s
 done
 

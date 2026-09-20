@@ -53,6 +53,20 @@ class Settings(BaseSettings):
     rag_rerank_candidates: int = Field(default=20, gt=0)
     rag_max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
 
+    # --- background jobs ---
+    worker_mode: Literal["inline", "celery"] = "inline"  # inline runs jobs in the API process
+    celery_broker_url: str | None = None  # defaults to redis_url, so queue depth is readable
+    ingest_queue: str = "ingest"
+    job_max_attempts: int = Field(default=3, gt=0)
+    job_retry_backoff_seconds: float = Field(default=2.0, gt=0)
+    job_retention_seconds: int = Field(default=86_400, gt=0)
+    upload_payload_ttl_seconds: int = Field(default=3_600, gt=0)
+    job_visibility_timeout_seconds: int = Field(default=3_600, gt=0)
+
+    @property
+    def broker_url(self) -> str:
+        return self.celery_broker_url or self.redis_url
+
     # --- gateway resilience ---
     provider_timeout_seconds: float = 30.0
     breaker_failure_threshold: int = 3

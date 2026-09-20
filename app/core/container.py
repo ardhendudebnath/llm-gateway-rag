@@ -28,6 +28,10 @@ from app.rag.reranking import CrossEncoderReranker, Reranker
 from app.rag.retrieval import Retriever
 from app.rag.service import RagService
 from app.rag.vector_store import QdrantChunkStore
+from app.workers.jobs import DeadLetterQueue, JobStore
+from app.workers.payloads import PayloadStore
+from app.workers.queue import CeleryJobQueue, InlineJobQueue, JobQueue
+from app.workers.service import IngestionJobService
 
 _INSECURE_DEFAULTS = {
     "admin_token": Settings.model_fields["admin_token"].default.get_secret_value(),
@@ -42,6 +46,9 @@ class RagComponents:
     ingestion: IngestionService
     retriever: Retriever
     answers: RagService
+    jobs: IngestionJobService
+    job_store: JobStore
+    dead_letters: DeadLetterQueue
 
 
 @dataclass
@@ -89,6 +96,14 @@ def build_reranker(settings: Settings) -> Reranker | None:
     return None
 
 
+def build_job_queue(settings: Settings) -> JobQueue:
+    if settings.worker_mode == "celery":
+        from app.workers.celery_app import celery_app  # imported lazily: only workers need Celery
+
+        return CeleryJobQueue(celery_app, settings.ingest_queue)
+    return InlineJobQueue()
+
+
 def build_qdrant(settings: Settings) -> AsyncQdrantClient:
     if settings.qdrant_url == ":memory:":
         return AsyncQdrantClient(location=":memory:")
@@ -99,11 +114,13 @@ def build_qdrant(settings: Settings) -> AsyncQdrantClient:
 async def build_rag(
     settings: Settings,
     redis: Redis,
+    cache_redis: Redis,
     embedder: Embedder,
     chat: ChatService,
     *,
     qdrant: AsyncQdrantClient | None = None,
     reranker: Reranker | None = None,
+    job_queue: JobQueue | None = None,
 ) -> RagComponents:
     store = QdrantChunkStore(qdrant or build_qdrant(settings), settings.rag_collection)
     await store.setup(embedder.dim)
@@ -114,24 +131,41 @@ async def build_rag(
         reranker if reranker is not None else build_reranker(settings),
         candidates=settings.rag_rerank_candidates,
     )
+    ingestion = IngestionService(
+        store,
+        documents,
+        embedder,
+        build_chunker(
+            settings.rag_chunker, settings.rag_chunk_max_words, settings.rag_chunk_overlap_words
+        ),
+        chunker_name=(
+            f"{settings.rag_chunker}/{settings.rag_chunk_max_words}"
+            f"/{settings.rag_chunk_overlap_words}"
+        ),
+        max_bytes=settings.rag_max_upload_bytes,
+    )
+    job_store = JobStore(redis, settings.job_retention_seconds)
+    dead_letters = DeadLetterQueue(redis)
+    queue = job_queue or build_job_queue(settings)
+    jobs = IngestionJobService(
+        job_store,
+        PayloadStore(cache_redis, settings.upload_payload_ttl_seconds),
+        dead_letters,
+        ingestion,
+        queue,
+        max_attempts=settings.job_max_attempts,
+    )
+    if isinstance(queue, InlineJobQueue):
+        queue.bind(jobs)  # the inline queue runs jobs through the service that owns it
     return RagComponents(
         store=store,
         documents=documents,
-        ingestion=IngestionService(
-            store,
-            documents,
-            embedder,
-            build_chunker(
-                settings.rag_chunker, settings.rag_chunk_max_words, settings.rag_chunk_overlap_words
-            ),
-            chunker_name=(
-                f"{settings.rag_chunker}/{settings.rag_chunk_max_words}"
-                f"/{settings.rag_chunk_overlap_words}"
-            ),
-            max_bytes=settings.rag_max_upload_bytes,
-        ),
+        ingestion=ingestion,
         retriever=retriever,
         answers=RagService(retriever, chat),
+        jobs=jobs,
+        job_store=job_store,
+        dead_letters=dead_letters,
     )
 
 
@@ -145,6 +179,7 @@ async def build_services(
     embedder: Embedder | None = None,
     qdrant: AsyncQdrantClient | None = None,
     reranker: Reranker | None = None,
+    job_queue: JobQueue | None = None,
 ) -> Services:
     check_production_secrets(settings)
 
@@ -195,5 +230,14 @@ async def build_services(
         limiter=TokenBucketLimiter(redis),
         meter=meter,
         chat=chat,
-        rag=await build_rag(settings, redis, embedder, chat, qdrant=qdrant, reranker=reranker),
+        rag=await build_rag(
+            settings,
+            redis,
+            cache_redis,
+            embedder,
+            chat,
+            qdrant=qdrant,
+            reranker=reranker,
+            job_queue=job_queue,
+        ),
     )

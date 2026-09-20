@@ -17,10 +17,11 @@ flowchart LR
     G -->|/v1/rag/answer| RAG[RAG orchestrator<br/>embed · Qdrant · rerank]
     RAG --> QD[(Qdrant)]
     RAG -->|augmented prompt| SC
-    U[Document upload] --> ING[Ingestion<br/>parse · chunk · embed] --> QD
-    ING -.-> Q[Celery workers]:::todo
+    U[Document upload] -->|202 + job id| Q[[Celery queue<br/>Redis]]
+    Q --> W[Ingestion workers<br/>parse · chunk · embed]
+    W --> QD
+    W -. failed after retries .-> DLQ[[Dead-letter queue]]
     G --> P[Prometheus → Grafana]
-    classDef todo stroke-dasharray: 4 4,opacity:0.6
 ```
 <sub>Dashed components are on the roadmap below.</sub>
 
@@ -31,16 +32,16 @@ flowchart LR
 | 1 | Skeleton + gateway: FastAPI, Podman image + Kubernetes manifests, health checks, multi-provider fallback | ✅ done |
 | 2 | Semantic cache, API keys + JWT, per-key token-bucket rate limiting, cost metering | ✅ done |
 | 3–4 | RAG: ingestion → chunking → embedding → Qdrant → rerank; P@5/R@5 eval set | ✅ done: recall@5 **1.000**, MRR **0.990** on 48 labelled questions ([eval](eval/README.md)) |
-| 5 | Celery workers: ingestion off the request path, job status, DLQ + backoff | ⏳ next |
-| 6 | Langfuse tracing, Grafana dashboard, error-budget alert | 🟡 Prometheus metrics + JSON logs done |
+| 5 | Celery workers: ingestion off the request path, job status, DLQ + backoff | ✅ done |
+| 6 | Langfuse tracing, Grafana dashboard, error-budget alert | ⏳ next — Prometheus metrics (incl. queue depth) + JSON logs done |
 | 7 | Locust load test, breaking point, chaos test | 🟡 `chaos` route + fallback tests done |
 | 8 | README polish, demo GIF, live deployment | ⏳ |
 
-**Quality:** 150 tests (unit + integration + provider contract tests), **97% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
+**Quality:** 174 tests (unit + integration + provider contract tests), **97% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
 
 ## Quickstart
 
-The whole stack (2 API replicas, Redis, Qdrant, Prometheus, Grafana) runs on a local Kubernetes cluster: [kind](https://kind.sigs.k8s.io/) on [Podman](https://podman.io/). No Docker needed.
+The whole stack (2 API replicas, a Celery worker, Redis, Qdrant, Prometheus, Grafana) runs on a local Kubernetes cluster: [kind](https://kind.sigs.k8s.io/) on [Podman](https://podman.io/). No Docker needed.
 
 **Prerequisites:** Podman, kind and kubectl. On Windows: `winget install RedHat.Podman Kubernetes.kind Kubernetes.kubectl` (Podman uses WSL2). If PowerShell blocks the script, run it as `powershell -ExecutionPolicy Bypass -File .\scripts\cluster-up.ps1`.
 
@@ -85,9 +86,12 @@ curl -s localhost:8000/v1/usage -H "Authorization: Bearer ng_..."
 RAG over your own documents (PDF, Markdown or text):
 
 ```bash
-# Upload: parsed, chunked, embedded and indexed for your tenant only
+# Upload: returns 202 with a job id; a worker parses, chunks and embeds it
 curl -s localhost:8000/v1/rag/documents -H "Authorization: Bearer ng_..." \
   -F file=@eval/corpus/incident-response.md
+
+# Poll the job: queued -> processing -> done (or failed, with the reason)
+curl -s localhost:8000/v1/rag/jobs/<job_id> -H "Authorization: Bearer ng_..."
 
 # Search: vector top-20, reranked by a cross-encoder, top 5 returned
 curl -s localhost:8000/v1/rag/search -H "Authorization: Bearer ng_..." \
@@ -125,13 +129,15 @@ uvicorn app.main:create_app --factory --reload               # needs a Redis on 
 | `POST /v1/auth/token` | API key | Exchange a key for a short-lived JWT |
 | `GET /v1/usage?days=7` | key / JWT | Daily requests, tokens, $ spent, $ saved by cache |
 | `DELETE /v1/cache` | key / JWT | Purge the caller's tenant cache |
-| `POST /v1/rag/documents` | key / JWT | Upload a PDF / Markdown / text file (multipart); 413 over 10 MB, 415 unsupported or binary, 422 no text |
+| `POST /v1/rag/documents` | key / JWT | Queue a PDF / Markdown / text file (multipart); **202** with a job; 413 over 10 MB, 415 unsupported or binary |
+| `GET /v1/rag/jobs[/{id}]` | key / JWT | Ingestion jobs: queued / processing / done / failed, with attempts and the failure reason |
 | `GET /v1/rag/documents[/{id}]` | key / JWT | Your documents, newest first; one document's record |
 | `DELETE /v1/rag/documents/{id}` | key / JWT | Delete a document and its chunks |
 | `POST /v1/rag/search` | key / JWT | Top-k passages with vector and rerank scores |
 | `POST /v1/rag/answer` | key / JWT | Grounded answer with numbered citations; no LLM call when nothing matches |
 | `POST/GET/DELETE /v1/admin/keys` | admin token | Issue, list, revoke API keys |
 | `GET /v1/admin/providers` | admin token | Route table + live circuit-breaker states |
+| `GET/DELETE /v1/admin/dead-letters` | admin token | Jobs that failed for good; inspect or clear |
 | `DELETE /v1/admin/cache` | admin token | Purge the whole cache |
 | `GET /healthz`, `/readyz`, `/metrics` | none | Liveness, readiness (Redis + Qdrant), Prometheus |
 
@@ -161,6 +167,14 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Retrieved text is untrusted.** The prompt tells the model to treat passages as data and ignore instructions inside them. Uploads are type-checked, size-capped, and rejected if they contain NUL bytes (binaries disguised as text).
 - **A 4× latency fix came from profiling.** Reranking first measured ~1 s per query: ONNX Runtime gave each model a 24-thread pool and the two pools fought over the CPU. Capping threads per model (`NEXUSGATE_MODEL_THREADS=4`) brought it to ~230 ms with identical scores.
 
+**Ingestion runs in workers, not in the request.** Uploading returns **202** with a job id; a Celery worker does the parsing, chunking and embedding. A 10 MB PDF no longer holds an API worker for seconds, and ingestion capacity scales by scaling the worker Deployment alone.
+- **The file doesn't travel through the broker.** Bytes are parked in Redis under a TTL and the queued message carries only a pointer. Celery messages stay small, and an upload whose job never runs expires by itself instead of leaking.
+- **Two failure classes, opposite handling.** A bad upload (unsupported, no text, expired payload) fails immediately: retrying it would fail identically. An infrastructure error (Qdrant down, Redis blip) is retried with exponential backoff. Either way the final state lands in the [dead-letter queue](app/workers/jobs.py) with the reason, visible through the admin API.
+- **Retry policy sits in the service, not the task**, so all of it is unit-tested without a broker: permanent failure, retry-then-succeed, and exhausting the last attempt.
+- **Redelivery is safe.** `acks_late` plus `reject_on_worker_lost` mean a job whose worker is killed is redelivered rather than lost, and ingestion is idempotent, so re-running it overwrites rather than duplicates.
+- **The same code path in tests.** An in-process queue runs jobs without a broker, so tests and `uvicorn` on a laptop behave like production: still 202, still polled.
+- **Job counters live in Redis**, because the worker has no `/metrics` endpoint. The API publishes queue depth, dead-letter depth and per-outcome totals when Prometheus scrapes it, whichever process ran the job.
+
 **Kubernetes, built with Podman.** The image is an OCI image built from a `Containerfile`, and the stack is plain kustomize: a cluster-agnostic [base](infra/k8s/base) plus a [kind overlay](infra/k8s/overlays/kind) that adds NodePorts and the locally built image.
 - **Replicas:** the API runs 2 replicas. Rate limits, the cache and metering live in Redis, so they hold across replicas.
 - **Per-pod scraping:** Prometheus discovers every API pod through a headless Service's DNS records. Each replica keeps its own counters, and scraping the load-balanced Service would sample a random pod each time.
@@ -177,11 +191,11 @@ app/
   gateway/        provider adapters, routing config, circuit breaker, router, pricing, chat service
   cache/          semantic cache (bruteforce / RediSearch indexes)
   rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
-  workers/        (week 5)
+  workers/        job records + DLQ, upload payloads, queues (celery / inline), Celery entry point
   observability/  Prometheus metrics, request-ID middleware
 config/routes.yaml  route aliases → ordered fallback chains, with per-deployment pricing
 tests/unit, tests/integration
-infra/k8s/base            kustomize base: API, Redis, Qdrant, Prometheus, Grafana (+ config)
+infra/k8s/base            kustomize base: API, worker, Redis, Qdrant, Prometheus, Grafana
 infra/k8s/overlays/kind   local kind cluster: NodePorts, Podman-built image, cluster config
 scripts/          cluster-up / cluster-down (PowerShell + bash), end-to-end smoke test
 Containerfile     API image, built with Podman
