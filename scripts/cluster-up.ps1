@@ -7,8 +7,9 @@
   restarts the API pods onto it. Every kubectl call is pinned to the kind-nexusgate context, so it
   never touches another cluster in your kubeconfig.
 
-  Secrets come from .env (NEXUSGATE_ADMIN_TOKEN, NEXUSGATE_JWT_SECRET, ANTHROPIC_API_KEY,
-  OPENAI_API_KEY). Missing admin/JWT secrets are generated once and kept across runs.
+  Secrets come from .env (NEXUSGATE_ADMIN_TOKEN, NEXUSGATE_JWT_SECRET, NEXUSGATE_QDRANT_API_KEY,
+  ANTHROPIC_API_KEY, OPENAI_API_KEY). Missing NEXUSGATE_* secrets are generated once and kept
+  across runs.
 
 .EXAMPLE
   ./scripts/cluster-up.ps1             # create or update
@@ -122,7 +123,9 @@ if ($LASTEXITCODE -eq 0 -and $current) {
     }
 }
 $secrets = [ordered]@{}
-foreach ($key in "NEXUSGATE_ADMIN_TOKEN", "NEXUSGATE_JWT_SECRET", "ANTHROPIC_API_KEY", "OPENAI_API_KEY") {
+$keys = "NEXUSGATE_ADMIN_TOKEN", "NEXUSGATE_JWT_SECRET", "NEXUSGATE_QDRANT_API_KEY",
+    "ANTHROPIC_API_KEY", "OPENAI_API_KEY"
+foreach ($key in $keys) {
     $value = $dotenv[$key]
     if (-not $value -or $value -like "change-me*") { $value = $existing[$key] }
     if (-not $value -and $key -like "NEXUSGATE_*") { $value = New-Secret }  # prod refuses defaults
@@ -146,7 +149,9 @@ Step "Deploy (kustomize overlay infra/k8s/overlays/kind)"
 Invoke-Native kubectl --context $Context apply -k "$Root/infra/k8s/overlays/kind"
 # The tag is always :dev, so restart the API onto the image that was just loaded.
 Invoke-Native kubectl --context $Context -n $Namespace rollout restart deployment/api
-foreach ($workload in "statefulset/redis", "deployment/api", "deployment/prometheus", "deployment/grafana") {
+$workloads = "statefulset/redis", "statefulset/qdrant", "deployment/api", "deployment/prometheus",
+    "deployment/grafana"
+foreach ($workload in $workloads) {
     Invoke-Native kubectl --context $Context -n $Namespace rollout status $workload --timeout=300s
 }
 

@@ -46,6 +46,10 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-ra"
+filterwarnings = [
+    # Tests use Qdrant's in-process mode, which accepts but ignores payload indexes.
+    "ignore:Payload indexes have no effect in the local Qdrant:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["app"]

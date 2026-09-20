@@ -23,23 +23,26 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        # The app builds the RediSearch index at startup, so wait for Redis instead of crash-looping.
-        - name: wait-for-redis
+        # The app creates the RediSearch index and the Qdrant collection at startup, so wait for
+        # both instead of crash-looping until they are up.
+        - name: wait-for-deps
           image: nexusgate-api
           command:
             - python
             - -c
             - |
-              import os, time, redis
+              import os, time, urllib.request, redis
               r = redis.Redis.from_url(os.environ["NEXUSGATE_REDIS_URL"], socket_timeout=2)
+              qdrant = os.environ["NEXUSGATE_QDRANT_URL"].rstrip("/") + "/readyz"
               for _ in range(90):
                   try:
                       r.ping()
+                      urllib.request.urlopen(qdrant, timeout=2)
                       break
-                  except redis.RedisError:
+                  except Exception:
                       time.sleep(2)
               else:
-                  raise SystemExit("redis not reachable after 180s")
+                  raise SystemExit("redis/qdrant not reachable after 180s")
           envFrom:
             - configMapRef:
                 name: nexusgate-config
@@ -59,6 +62,14 @@ spec:
                 name: nexusgate-config
             - secretRef:
                 name: nexusgate-secrets
+          # Loading the embedding and reranking models takes a few seconds; give startup up to
+          # 60s before liveness applies.
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /readyz
@@ -69,15 +80,16 @@ spec:
             httpGet:
               path: /healthz
               port: http
-            initialDelaySeconds: 10
             periodSeconds: 10
             failureThreshold: 3
           resources:
             requests:
-              cpu: 100m
-              memory: 256Mi
+              cpu: 250m
+              memory: 512Mi
             limits:
-              memory: 768Mi # LiteLLM is a large import; no CPU limit, to avoid throttling
+              # ONNX embedding + reranking models and LiteLLM live in-process.
+              # No CPU limit, to avoid throttling.
+              memory: 1536Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

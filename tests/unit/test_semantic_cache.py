@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 from redis.exceptions import ResponseError
 
-from app.cache.embeddings import HashingEmbedder
 from app.cache.semantic_cache import (
     BruteForceIndex,
     CachedCompletion,
@@ -10,6 +9,7 @@ from app.cache.semantic_cache import (
     SemanticCache,
     namespace_for,
 )
+from app.core.embeddings import HashingEmbedder
 from app.gateway.schemas import ChatMessage, ChatRequest
 
 

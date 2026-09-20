@@ -22,7 +22,7 @@ Index backends
 * ``BruteForceIndex`` — numpy dot product over the namespace's entries. Zero extra infrastructure;
   fine for dev, tests and small namespaces.
 * ``RediSearchIndex`` — HNSW vector index via the Redis Query Engine (redis-stack / Redis 8).
-  O(log n) lookups; what ``docker compose`` runs.
+  O(log n) lookups; what the Kubernetes stack runs.
 """
 
 import hashlib
@@ -38,7 +38,7 @@ from pydantic import BaseModel
 from redis.asyncio import Redis
 from redis.exceptions import ResponseError
 
-from app.cache.embeddings import Embedder
+from app.core.embeddings import Embedder
 from app.gateway.schemas import ChatRequest
 
 PREFIX = "semcache"

@@ -5,7 +5,7 @@
 #   scripts/cluster-up.sh --recreate   delete and recreate the cluster first
 #
 # Every kubectl call is pinned to the kind-nexusgate context, so it never touches another cluster.
-# Secrets come from .env; missing admin/JWT secrets are generated once and kept across runs.
+# Secrets come from .env; missing NEXUSGATE_* secrets are generated once and kept across runs.
 # Linux: kind needs rootful Podman (run with sudo) or rootless Podman with cgroup v2 delegation,
 # see https://kind.sigs.k8s.io/docs/user/rootless/. macOS/Windows use a rootful Podman machine.
 set -euo pipefail
@@ -88,7 +88,8 @@ new_secret() { head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n'; }
 
 admin_token=""
 providers=()
-for key in NEXUSGATE_ADMIN_TOKEN NEXUSGATE_JWT_SECRET ANTHROPIC_API_KEY OPENAI_API_KEY; do
+for key in NEXUSGATE_ADMIN_TOKEN NEXUSGATE_JWT_SECRET NEXUSGATE_QDRANT_API_KEY \
+  ANTHROPIC_API_KEY OPENAI_API_KEY; do
   value=$(dotenv_value "$key")
   if [[ -z "$value" || "$value" == change-me* ]]; then value=$(existing_value "$key"); fi
   if [[ -z "$value" && "$key" == NEXUSGATE_* ]]; then value=$(new_secret); fi  # prod refuses defaults
@@ -107,7 +108,8 @@ step "Deploy (kustomize overlay infra/k8s/overlays/kind)"
 kc apply -k "$ROOT/infra/k8s/overlays/kind"
 # The tag is always :dev, so restart the API onto the image that was just loaded.
 kc -n "$NS" rollout restart deployment/api
-for workload in statefulset/redis deployment/api deployment/prometheus deployment/grafana; do
+for workload in statefulset/redis statefulset/qdrant deployment/api deployment/prometheus \
+  deployment/grafana; do
   kc -n "$NS" rollout status "$workload" --timeout=300s
 done
 

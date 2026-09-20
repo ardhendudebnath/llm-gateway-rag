@@ -15,11 +15,12 @@ async def healthz() -> dict:
 @router.get("/readyz", summary="Readiness: dependencies are reachable")
 async def readyz(response: Response, services: Services = Depends(get_services)) -> dict:
     checks: dict[str, str] = {}
-    try:
-        await services.redis.ping()
-        checks["redis"] = "ok"
-    except Exception as e:
-        checks["redis"] = f"error: {type(e).__name__}"
+    for name, probe in (("redis", services.redis.ping), ("qdrant", services.rag.store.ping)):
+        try:
+            await probe()
+            checks[name] = "ok"
+        except Exception as e:
+            checks[name] = f"error: {type(e).__name__}"
     ready = all(v == "ok" for v in checks.values())
     if not ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE

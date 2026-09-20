@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,8 +32,26 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 86_400
     cache_index_backend: Literal["bruteforce", "redisearch"] = "bruteforce"
     cache_max_entries_per_namespace: int = 1_000
+    # --- embeddings (shared by the semantic cache and RAG) ---
     embedding_backend: Literal["hash", "fastembed"] = "hash"
     embedding_model: str = "BAAI/bge-small-en-v1.5"
+    model_cache_dir: str | None = None  # pre-downloaded fastembed weights (baked into the image)
+    # ONNX Runtime sizes each session's thread pool to every core, and the embedder's and
+    # reranker's spinning pools then fight over the CPU. Measured on a 24-core host: reranking 20
+    # chunks took 929 ms with default pools and 242 ms with 4 threads per model.
+    model_threads: int | None = Field(default=4, gt=0)
+
+    # --- RAG ---
+    qdrant_url: str = ":memory:"  # in-process Qdrant for dev/tests; http://qdrant:6333 in k8s
+    qdrant_api_key: SecretStr | None = None
+    rag_collection: str = "nexusgate_chunks"
+    rag_chunker: Literal["fixed", "sentence", "structured"] = "structured"
+    rag_chunk_max_words: int = Field(default=180, gt=0)
+    rag_chunk_overlap_words: int = Field(default=40, ge=0)
+    rag_reranker: Literal["none", "cross-encoder"] = "none"
+    rag_reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    rag_rerank_candidates: int = Field(default=20, gt=0)
+    rag_max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
 
     # --- gateway resilience ---
     provider_timeout_seconds: float = 30.0

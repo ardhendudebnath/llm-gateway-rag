@@ -1,17 +1,18 @@
 """Composition root: builds every long-lived service once per process.
 
-Everything is injectable so tests can swap in fakeredis, fake providers and a deterministic
-embedder without monkeypatching.
+Everything is injectable so tests can swap in fakeredis, fake providers, an in-memory Qdrant and a
+deterministic embedder without monkeypatching.
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
-from app.cache.embeddings import Embedder, FastEmbedEmbedder, HashingEmbedder
 from app.cache.semantic_cache import BruteForceIndex, RediSearchIndex, SemanticCache
 from app.core.config import Settings
+from app.core.embeddings import Embedder, FastEmbedEmbedder, HashingEmbedder
 from app.core.metering import UsageMeter
 from app.core.rate_limit import TokenBucketLimiter
 from app.core.security import ApiKeyStore, TokenService
@@ -20,11 +21,27 @@ from app.gateway.providers import LiteLLMProvider, MockProvider, Provider
 from app.gateway.router import LLMRouter
 from app.gateway.routing_config import RoutingConfig
 from app.gateway.service import ChatService
+from app.rag.chunking import build_chunker
+from app.rag.documents import DocumentRegistry
+from app.rag.ingestion import IngestionService
+from app.rag.reranking import CrossEncoderReranker, Reranker
+from app.rag.retrieval import Retriever
+from app.rag.service import RagService
+from app.rag.vector_store import QdrantChunkStore
 
 _INSECURE_DEFAULTS = {
     "admin_token": Settings.model_fields["admin_token"].default.get_secret_value(),
     "jwt_secret": Settings.model_fields["jwt_secret"].default.get_secret_value(),
 }
+
+
+@dataclass
+class RagComponents:
+    store: QdrantChunkStore
+    documents: DocumentRegistry
+    ingestion: IngestionService
+    retriever: Retriever
+    answers: RagService
 
 
 @dataclass
@@ -39,8 +56,10 @@ class Services:
     limiter: TokenBucketLimiter
     meter: UsageMeter
     chat: ChatService
+    rag: RagComponents
 
     async def aclose(self) -> None:
+        await self.rag.store.aclose()
         await self.redis.aclose()
         if self.cache_redis is not self.redis:
             await self.cache_redis.aclose()
@@ -56,8 +75,64 @@ def check_production_secrets(settings: Settings) -> None:
 
 def build_embedder(settings: Settings) -> Embedder:
     if settings.embedding_backend == "fastembed":
-        return FastEmbedEmbedder(settings.embedding_model)
+        return FastEmbedEmbedder(
+            settings.embedding_model, settings.model_cache_dir, settings.model_threads
+        )
     return HashingEmbedder()
+
+
+def build_reranker(settings: Settings) -> Reranker | None:
+    if settings.rag_reranker == "cross-encoder":
+        return CrossEncoderReranker(
+            settings.rag_reranker_model, settings.model_cache_dir, settings.model_threads
+        )
+    return None
+
+
+def build_qdrant(settings: Settings) -> AsyncQdrantClient:
+    if settings.qdrant_url == ":memory:":
+        return AsyncQdrantClient(location=":memory:")
+    api_key = settings.qdrant_api_key.get_secret_value() if settings.qdrant_api_key else None
+    return AsyncQdrantClient(url=settings.qdrant_url, api_key=api_key, timeout=10)
+
+
+async def build_rag(
+    settings: Settings,
+    redis: Redis,
+    embedder: Embedder,
+    chat: ChatService,
+    *,
+    qdrant: AsyncQdrantClient | None = None,
+    reranker: Reranker | None = None,
+) -> RagComponents:
+    store = QdrantChunkStore(qdrant or build_qdrant(settings), settings.rag_collection)
+    await store.setup(embedder.dim)
+    documents = DocumentRegistry(redis)
+    retriever = Retriever(
+        store,
+        embedder,
+        reranker if reranker is not None else build_reranker(settings),
+        candidates=settings.rag_rerank_candidates,
+    )
+    return RagComponents(
+        store=store,
+        documents=documents,
+        ingestion=IngestionService(
+            store,
+            documents,
+            embedder,
+            build_chunker(
+                settings.rag_chunker, settings.rag_chunk_max_words, settings.rag_chunk_overlap_words
+            ),
+            chunker_name=(
+                f"{settings.rag_chunker}/{settings.rag_chunk_max_words}"
+                f"/{settings.rag_chunk_overlap_words}"
+            ),
+            max_bytes=settings.rag_max_upload_bytes,
+        ),
+        retriever=retriever,
+        answers=RagService(retriever, chat),
+    )
 
 
 async def build_services(
@@ -68,12 +143,16 @@ async def build_services(
     providers: Mapping[str, Provider] | None = None,
     routing: RoutingConfig | None = None,
     embedder: Embedder | None = None,
+    qdrant: AsyncQdrantClient | None = None,
+    reranker: Reranker | None = None,
 ) -> Services:
     check_production_secrets(settings)
 
     # Two clients over the same server: string-decoding for app data, raw bytes for vectors.
     redis = redis or Redis.from_url(settings.redis_url, decode_responses=True)
     cache_redis = cache_redis or Redis.from_url(settings.redis_url, decode_responses=False)
+    # One model instance serves both the semantic cache and RAG.
+    embedder = embedder or build_embedder(settings)
 
     router = LLMRouter(
         routing or RoutingConfig.from_yaml(settings.routes_file),
@@ -93,7 +172,7 @@ async def build_services(
         )
         cache = SemanticCache(
             cache_redis,
-            embedder or build_embedder(settings),
+            embedder,
             index,
             threshold=settings.cache_similarity_threshold,
             ttl_seconds=settings.cache_ttl_seconds,
@@ -102,6 +181,7 @@ async def build_services(
         await cache.setup()
 
     meter = UsageMeter(redis, settings.usage_retention_days)
+    chat = ChatService(router, cache, meter)
     return Services(
         settings=settings,
         redis=redis,
@@ -114,5 +194,6 @@ async def build_services(
         ),
         limiter=TokenBucketLimiter(redis),
         meter=meter,
-        chat=ChatService(router, cache, meter),
+        chat=chat,
+        rag=await build_rag(settings, redis, embedder, chat, qdrant=qdrant, reranker=reranker),
     )

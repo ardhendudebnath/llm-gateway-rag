@@ -40,3 +40,20 @@ CACHE_COST_SAVED = Counter(
 )
 
 RATE_LIMITED = Counter("nexusgate_rate_limited_total", "Requests rejected by the rate limiter")
+
+RAG_DOCUMENTS_INGESTED = Counter("nexusgate_rag_documents_ingested_total", "Documents ingested")
+RAG_CHUNKS_INGESTED = Counter("nexusgate_rag_chunks_ingested_total", "Chunks embedded and stored")
+RAG_INGEST_LATENCY = Histogram(
+    "nexusgate_rag_ingest_duration_seconds",
+    "Parse + chunk + embed + store time per document",
+    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120),
+)
+RAG_STAGE_LATENCY = Histogram(
+    "nexusgate_rag_stage_duration_seconds",
+    "Retrieval latency by stage",
+    ["stage"],  # embed_query | vector_search | rerank
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5),
+)
+RAG_EMPTY_RETRIEVALS = Counter(
+    "nexusgate_rag_empty_retrievals_total", "Answer requests where no passage matched (no LLM call)"
+)

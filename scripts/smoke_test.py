@@ -3,9 +3,10 @@
     python scripts/smoke_test.py --admin-token <token> [--prometheus-url http://localhost:9090]
 
 Goes through the real network path: key issuance, a cache miss then a hit, fallback on the `chaos`
-route, usage metering, /metrics, and (optionally) Prometheus scraping every API replica. It only
-uses the offline mock routes, so it needs no provider API keys and spends nothing. It cleans up the
-key and cache entries it creates, and exits non-zero on the first failed check.
+route, usage metering, /metrics, RAG (upload, search, a cited answer), and (optionally) Prometheus
+scraping every API replica. It only uses the offline mock routes, so it needs no provider API keys
+and spends nothing. It cleans up the key, cache entries and document it creates, and exits non-zero
+on the first failed check.
 """
 
 import argparse
@@ -94,9 +95,55 @@ def check_gateway(api: httpx.Client, admin_token: str) -> None:
         metrics = api.get("/metrics").text
         check("nexusgate_http_requests_total" in metrics, "/metrics lacks nexusgate_ metrics")
         ok("/metrics exports nexusgate_* series")
+
+        check_rag(api, auth)
     finally:
         api.delete("/v1/cache", headers=auth)
         api.delete(f"/v1/admin/keys/{key_id}", headers=admin)
+
+
+RUNBOOK = b"""# Billing worker runbook
+
+## Restarting the worker
+Drain the queue first, then wait 90 seconds before restarting the billing worker.
+
+## Scaling
+The billing worker scales between two and eight replicas based on queue depth.
+"""
+
+
+def check_rag(api: httpx.Client, auth: dict) -> None:
+    r = api.post(
+        "/v1/rag/documents",
+        headers=auth,
+        files={"file": ("runbook.md", RUNBOOK, "text/markdown")},
+    )
+    check(r.status_code == 201, f"RAG upload: expected 201, got {r.status_code} {r.text}")
+    doc = r.json()
+    try:
+        ok(f"RAG: ingested '{doc['title']}' as {doc['chunks']} chunks")
+
+        r = api.post(
+            "/v1/rag/search",
+            headers=auth,
+            json={"query": "how long to wait before bouncing the billing worker", "top_k": 2},
+        )
+        check(r.status_code == 200, f"RAG search: {r.status_code} {r.text}")
+        body = r.json()
+        check(body["hits"] and "90 seconds" in body["hits"][0]["text"], f"search: {body}")
+        ok(f"RAG search: right passage ranked first (reranked={body['reranked']})")
+
+        r = api.post(
+            "/v1/rag/answer",
+            headers=auth,
+            json={"question": "How do I restart the billing worker?", "model": "mock"},
+        )
+        check(r.status_code == 200, f"RAG answer: {r.status_code} {r.text}")
+        answer = r.json()
+        check(answer["citations"] and answer["nexusgate"], f"answer: {answer}")
+        ok(f"RAG answer via the mock route with {len(answer['citations'])} numbered passages")
+    finally:
+        api.delete(f"/v1/rag/documents/{doc['doc_id']}", headers=auth)
 
 
 def check_prometheus(url: str, expected_targets: int, timeout_s: float) -> None:

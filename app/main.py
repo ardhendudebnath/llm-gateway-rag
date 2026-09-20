@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import __version__
-from app.api import account, admin, chat, health
+from app.api import account, admin, chat, health, rag
 from app.core.config import Settings, get_settings
 from app.core.container import Services, build_services
 from app.core.logging import configure_logging
@@ -71,8 +71,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     app = FastAPI(
         title="NexusGate",
         version=__version__,
-        description="LLM gateway: multi-provider routing with fallback, semantic caching, "
-        "per-key rate limiting and cost metering.",
+        description="LLM gateway and RAG backend: multi-provider routing with fallback, semantic "
+        "caching, per-key rate limiting, cost metering, and document retrieval with reranking.",
         lifespan=lifespan,
     )
     if services is not None:
@@ -80,6 +80,6 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     app.add_middleware(RequestContextMiddleware)
     _install_error_handlers(app)
-    for module in (health, chat, account, admin):
+    for module in (health, chat, rag, account, admin):
         app.include_router(module.router)
     return app

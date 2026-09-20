@@ -1,1 +1,1 @@
-"""RAG pipeline: ingestion, chunking, embedding, retrieval, reranking (roadmap weeks 3-4)."""
+"""RAG pipeline: parse -> chunk -> embed -> Qdrant, then retrieve -> rerank -> grounded answer."""

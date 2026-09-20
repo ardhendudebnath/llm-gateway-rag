@@ -7,9 +7,9 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from app.cache.embeddings import HashingEmbedder
 from app.core.config import Settings
 from app.core.container import build_services
+from app.core.embeddings import HashingEmbedder
 from app.gateway.providers import ProviderError
 from app.gateway.routing_config import Deployment, RoutingConfig
 from app.gateway.schemas import ChatRequest, ProviderResponse, Usage

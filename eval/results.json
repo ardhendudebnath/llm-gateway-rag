@@ -1,0 +1,223 @@
+{
+  "generated_at": "2026-09-19T19:52:45+00:00",
+  "documents": 9,
+  "words": 2530,
+  "questions": 48,
+  "k": 5,
+  "results": [
+    {
+      "config": "hash + structured-180/40",
+      "settings": {
+        "chunker": "structured",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "hash",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 52,
+      "precision@5": 0.154,
+      "recall@5": 0.719,
+      "mrr": 0.615,
+      "hit@1": 0.542,
+      "ms_per_query_p50": 0.5,
+      "misses": [
+        "q07",
+        "q09",
+        "q12",
+        "q14",
+        "q22",
+        "q27",
+        "q31",
+        "q32",
+        "q37",
+        "q38",
+        "q39",
+        "q40",
+        "q42",
+        "q46"
+      ]
+    },
+    {
+      "config": "bge-small + fixed-180/0",
+      "settings": {
+        "chunker": "fixed",
+        "max_words": 180,
+        "overlap_words": 0,
+        "embedder": "bge-small",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 18,
+      "precision@5": 0.2,
+      "recall@5": 0.927,
+      "mrr": 0.831,
+      "hit@1": 0.75,
+      "ms_per_query_p50": 4.4,
+      "misses": [
+        "q01",
+        "q11",
+        "q43",
+        "q46"
+      ]
+    },
+    {
+      "config": "bge-small + fixed-180/40",
+      "settings": {
+        "chunker": "fixed",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "bge-small",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 19,
+      "precision@5": 0.233,
+      "recall@5": 0.958,
+      "mrr": 0.856,
+      "hit@1": 0.771,
+      "ms_per_query_p50": 4.7,
+      "misses": [
+        "q07",
+        "q11"
+      ]
+    },
+    {
+      "config": "bge-small + sentence-180/40",
+      "settings": {
+        "chunker": "sentence",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "bge-small",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 20,
+      "precision@5": 0.225,
+      "recall@5": 0.958,
+      "mrr": 0.854,
+      "hit@1": 0.771,
+      "ms_per_query_p50": 5.6,
+      "misses": [
+        "q07",
+        "q11"
+      ]
+    },
+    {
+      "config": "bge-small + structured-180/40",
+      "settings": {
+        "chunker": "structured",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "bge-small",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 52,
+      "precision@5": 0.208,
+      "recall@5": 0.979,
+      "mrr": 0.924,
+      "hit@1": 0.875,
+      "ms_per_query_p50": 5.6,
+      "misses": [
+        "q11"
+      ]
+    },
+    {
+      "config": "bge-small + structured-100/25",
+      "settings": {
+        "chunker": "structured",
+        "max_words": 100,
+        "overlap_words": 25,
+        "embedder": "bge-small",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 54,
+      "precision@5": 0.213,
+      "recall@5": 0.979,
+      "mrr": 0.934,
+      "hit@1": 0.896,
+      "ms_per_query_p50": 5.6,
+      "misses": [
+        "q11"
+      ]
+    },
+    {
+      "config": "bge-small + structured-300/60",
+      "settings": {
+        "chunker": "structured",
+        "max_words": 300,
+        "overlap_words": 60,
+        "embedder": "bge-small",
+        "reranker": null,
+        "candidates": 20
+      },
+      "chunks": 52,
+      "precision@5": 0.208,
+      "recall@5": 0.979,
+      "mrr": 0.924,
+      "hit@1": 0.875,
+      "ms_per_query_p50": 5.6,
+      "misses": [
+        "q11"
+      ]
+    },
+    {
+      "config": "bge-small + fixed-180/40 + minilm rerank of top 20",
+      "settings": {
+        "chunker": "fixed",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "bge-small",
+        "reranker": "minilm",
+        "candidates": 20
+      },
+      "chunks": 19,
+      "precision@5": 0.25,
+      "recall@5": 1.0,
+      "mrr": 0.99,
+      "hit@1": 0.979,
+      "ms_per_query_p50": 423.4,
+      "misses": []
+    },
+    {
+      "config": "bge-small + structured-180/40 + minilm rerank of top 20",
+      "settings": {
+        "chunker": "structured",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "bge-small",
+        "reranker": "minilm",
+        "candidates": 20
+      },
+      "chunks": 52,
+      "precision@5": 0.213,
+      "recall@5": 1.0,
+      "mrr": 0.99,
+      "hit@1": 0.979,
+      "ms_per_query_p50": 230.9,
+      "misses": []
+    },
+    {
+      "config": "bge-small + structured-180/40 + minilm rerank of top 10",
+      "settings": {
+        "chunker": "structured",
+        "max_words": 180,
+        "overlap_words": 40,
+        "embedder": "bge-small",
+        "reranker": "minilm",
+        "candidates": 10
+      },
+      "chunks": 52,
+      "precision@5": 0.208,
+      "recall@5": 0.979,
+      "mrr": 0.979,
+      "hit@1": 0.979,
+      "ms_per_query_p50": 107.2,
+      "misses": [
+        "q11"
+      ]
+    }
+  ]
+}
