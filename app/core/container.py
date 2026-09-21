@@ -13,12 +13,14 @@ from redis.asyncio import Redis
 
 from app import __version__
 from app.cache.semantic_cache import BruteForceIndex, RediSearchIndex, SemanticCache
+from app.core.concurrency import InferenceGate
 from app.core.config import Settings
 from app.core.embeddings import Embedder, FastEmbedEmbedder, HashingEmbedder
 from app.core.metering import UsageMeter
 from app.core.rate_limit import TokenBucketLimiter
 from app.core.security import ApiKeyStore, TokenService
 from app.gateway.circuit_breaker import CircuitBreaker
+from app.gateway.faults import FaultInjector
 from app.gateway.providers import LiteLLMProvider, MockProvider, Provider
 from app.gateway.router import LLMRouter
 from app.gateway.routing_config import RoutingConfig
@@ -90,7 +92,14 @@ def check_production_secrets(settings: Settings) -> None:
 def build_embedder(settings: Settings) -> Embedder:
     if settings.embedding_backend == "fastembed":
         return FastEmbedEmbedder(
-            settings.embedding_model, settings.model_cache_dir, settings.model_threads
+            settings.embedding_model,
+            settings.model_cache_dir,
+            settings.model_threads,
+            gate=InferenceGate(
+                "embedder",
+                max_concurrency=settings.embed_max_concurrency,
+                max_queue=settings.embed_max_queue,
+            ),
         )
     return HashingEmbedder()
 
@@ -98,7 +107,15 @@ def build_embedder(settings: Settings) -> Embedder:
 def build_reranker(settings: Settings) -> Reranker | None:
     if settings.rag_reranker == "cross-encoder":
         return CrossEncoderReranker(
-            settings.rag_reranker_model, settings.model_cache_dir, settings.model_threads
+            settings.rag_reranker_model,
+            settings.model_cache_dir,
+            settings.model_threads,
+            gate=InferenceGate(
+                "reranker",
+                max_concurrency=settings.rerank_max_concurrency,
+                max_queue=settings.rerank_max_queue,
+            ),
+            max_wait_seconds=settings.rerank_max_wait_ms / 1000 or None,
         )
     return None
 
@@ -226,6 +243,7 @@ async def build_services(
         breaker_factory=lambda: CircuitBreaker(
             settings.breaker_failure_threshold, settings.breaker_cooldown_seconds
         ),
+        faults=FaultInjector(redis) if settings.fault_injection_enabled else None,
     )
 
     cache: SemanticCache | None = None

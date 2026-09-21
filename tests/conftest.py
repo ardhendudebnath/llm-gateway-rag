@@ -84,6 +84,7 @@ def settings() -> Settings:
         breaker_failure_threshold=3,
         breaker_cooldown_seconds=30.0,
         provider_timeout_seconds=2.0,
+        fault_injection_enabled=True,
         log_level="WARNING",
     )
 

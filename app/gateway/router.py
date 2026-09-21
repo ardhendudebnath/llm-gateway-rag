@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 
 from app.gateway.circuit_breaker import BreakerState, CircuitBreaker
+from app.gateway.faults import FaultInjector
 from app.gateway.pricing import compute_cost
 from app.gateway.providers import Provider, ProviderError
 from app.gateway.routing_config import Deployment, RoutingConfig
@@ -54,6 +55,7 @@ class LLMRouter:
         default_timeout: float,
         breaker_factory: Callable[[], CircuitBreaker],
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        faults: FaultInjector | None = None,
     ):
         unknown = {d.provider for d in config.deployments.values()} - set(providers)
         if unknown:
@@ -62,6 +64,7 @@ class LLMRouter:
         self._providers = providers
         self._default_timeout = default_timeout
         self._sleep = sleep
+        self.faults = faults
         self.breakers = {name: breaker_factory() for name in config.deployments}
 
     @property
@@ -125,6 +128,8 @@ class LLMRouter:
                 await self._sleep(RETRY_BASE_DELAY_SECONDS * 2 ** (retry - 1))
             start = time.perf_counter()
             try:
+                if self.faults is not None:  # chaos testing: fail exactly where a provider would
+                    await self.faults.maybe_fail(dep.name)
                 response = await asyncio.wait_for(provider.complete(dep, request), timeout)
             except TimeoutError:
                 outcome, error = "timeout", f"no response within {timeout}s"

@@ -36,10 +36,19 @@ flowchart LR
 | 3–4 | RAG: ingestion → chunking → embedding → Qdrant → rerank; P@5/R@5 eval set | ✅ done: recall@5 **1.000**, MRR **0.990** on 48 labelled questions ([eval](eval/README.md)) |
 | 5 | Celery workers: ingestion off the request path, job status, DLQ + backoff | ✅ done |
 | 6 | Langfuse tracing, Grafana dashboard, error-rate alert | ✅ done |
-| 7 | Locust load test, breaking point, chaos test | ⏳ next — `chaos` route + fallback tests done |
+| 7 | Locust load test, breaking point, chaos test | ✅ done: breaking point found and fixed, 0 failures when a provider dies ([results](loadtest/README.md)) |
 | 8 | README polish, demo GIF, live deployment | ⏳ |
 
-**Quality:** 195 tests (unit + integration + provider contract tests), **94% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
+**Quality:** 220 tests (unit + integration + provider contract tests), **96% coverage**, ruff-clean. No test touches the network or spends API credits. The Kubernetes stack is checked end to end by [`scripts/smoke_test.py`](scripts/smoke_test.py).
+
+## Performance and reliability, measured
+
+Load- and chaos-tested with Locust running *inside* the cluster, on one 12-vCPU laptop shared by every component. The full method, the numbers and the limitations are in [loadtest/README.md](loadtest/README.md).
+
+- **Breaking point, found and fixed.** Unbounded model inference OOM-killed the API at 50 users (74% errors). Bounding concurrency with backpressure and graceful degradation took it to **0 errors at 200 users and 6× the throughput**. A wait budget on reranking then cut p95 about 4× at 50–100 users.
+- **Ceilings** (p95 objective, <1% errors): chat under 500 ms at **153.7 req/s**; RAG under 1 s at **79 req/s**. Before the fixes, both were 20.6 req/s.
+- **Losing a provider under traffic: 0 user-visible failures** out of 2,100 requests. Breakers opened 0.9 s after the fault, and the primary was back 16 s after the fix. Failover roughly doubled latency and cost 5× per request, because the fallback is the pricier model.
+- **Retrieval quality:** recall@5 **1.000**, MRR **0.990** on 48 labelled questions ([eval](eval/README.md)).
 
 ## Quickstart
 
@@ -141,6 +150,7 @@ uvicorn app.main:create_app --factory --reload               # needs a Redis on 
 | `GET /v1/admin/providers` | admin token | Route table + live circuit-breaker states |
 | `GET/DELETE /v1/admin/dead-letters` | admin token | Jobs that failed for good; inspect or clear |
 | `GET /v1/admin/alerts` | admin token | Alerts Alertmanager has delivered, newest first |
+| `GET/PUT/DELETE /v1/admin/faults[/{deployment}]` | admin token | Chaos testing: make a deployment fail on every replica (off unless enabled) |
 | `POST /v1/alerts/webhook` | basic auth | Alertmanager receiver (admin token as the password) |
 | `DELETE /v1/admin/cache` | admin token | Purge the whole cache |
 | `GET /healthz`, `/readyz`, `/metrics` | none | Liveness, readiness (Redis + Qdrant), Prometheus |
@@ -170,6 +180,14 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Answers go through the normal chat path**, so they get fallback, circuit breaking, metering and the semantic cache. Retrieved passages sit in the system message, which is part of the cache namespace, so an answer is only reused when the *same* passages were retrieved. If nothing matches, the API says so without calling an LLM, so there is no cost and no invented answer.
 - **Retrieved text is untrusted.** The prompt tells the model to treat passages as data and ignore instructions inside them. Uploads are type-checked, size-capped, and rejected if they contain NUL bytes (binaries disguised as text).
 - **A 4× latency fix came from profiling.** Reranking first measured ~1 s per query: ONNX Runtime gave each model a 24-thread pool and the two pools fought over the CPU. Capping threads per model (`NEXUSGATE_MODEL_THREADS=4`) brought it to ~230 ms with identical scores.
+
+**Degrade before failing, and shed before falling over.** The load test showed that unbounded model inference takes the API down: dozens of simultaneous ONNX runs pushed the pods past their memory limit. Each model now sits behind an [`InferenceGate`](app/core/concurrency.py): a fixed number of inferences run at once, a bounded number wait, and the rest are refused immediately.
+- **Callers degrade first.** A saturated reranker means vector order is returned; a saturated embedder means chat skips the cache and still answers.
+- **Only requests with no fallback are shed**, with a 503 and `Retry-After`.
+- **Reranking has a 250 ms wait budget**, because it is optional work: waiting for it cost more than skipping it.
+- **All of it is counted and alerted on:** `nexusgate_degraded_total`, `nexusgate_inference_shed_total`, and the `NexusGateSheddingLoad` alert.
+
+**Chaos is a first-class API.** `PUT /v1/admin/faults/{deployment}` makes a deployment fail on demand, on every replica. The table lives in Redis, so it isn't one pod's memory, and it is cached for a second so it costs nothing per request. The failure is raised exactly where a real provider error would be, so it exercises the real retry, fallback and breaker paths. It is off unless `NEXUSGATE_FAULT_INJECTION_ENABLED` is set, which only the local cluster overlay does.
 
 **Observability that can't take the service down.** Every completion produces a Langfuse generation (prompt, response, model, tokens, cost, cache hit) *and* a structured log line, both carrying the request id.
 - **Tracing is optional and never fatal.** Without Langfuse credentials the gateway uses a no-op tracer. Every call into the SDK is guarded, and tests cover the cases where Langfuse can't be reached or fails mid-request: the request is still served.
@@ -211,8 +229,9 @@ infra/k8s/overlays/kind   local kind cluster: NodePorts, Podman-built image, clu
 scripts/          cluster-up / cluster-down (PowerShell + bash), end-to-end smoke test
 Containerfile     API image, built with Podman
 eval/             retrieval eval: fictional corpus, 48 labelled questions, harness, results
+loadtest/         Locust traffic, in-cluster runner, chaos test, results and report
 ```
 
 ## What I'd do with more time
 
-Shared circuit-breaker state across replicas; streaming (SSE) responses; hybrid retrieval (BM25 + dense) and an LLM-judged eval of answer faithfulness; a model-comparison harness that feeds back into route ordering; a HorizontalPodAutoscaler driven by queue depth; a Helm chart for real clusters.
+Shared circuit-breaker state across replicas; streaming (SSE) responses; hybrid retrieval (BM25 + dense) and an LLM-judged eval of answer faithfulness; a model-comparison harness that feeds back into route ordering; a HorizontalPodAutoscaler driven by CPU and inference queue depth (the load test showed CPU is now the limit); GPU inference or a smaller reranker for the RAG latency floor; a soak test; a Helm chart for real clusters.

@@ -11,6 +11,14 @@ images:
     newName: localhost/nexusgate-api
     newTag: dev
 
+# The local cluster is where chaos tests run, so fault injection is on here only. The base keeps
+# the safe default (off).
+configMapGenerator:
+  - name: nexusgate-config
+    behavior: merge
+    literals:
+      - NEXUSGATE_FAULT_INJECTION_ENABLED=true
+
 patches:
   - target: { kind: Service, name: api }
     patch: |-

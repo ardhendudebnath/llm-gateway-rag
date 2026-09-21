@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 embeddings = ["fastembed>=0.4"]
+loadtest = ["locust>=2.30"]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",

@@ -46,6 +46,17 @@ groups:
           summary: "p95 latency above 2s"
           description: "p95 request latency is {{ $value | humanizeDuration }}."
 
+      - alert: NexusGateSheddingLoad
+        # Degrading (skipping rerank or cache) is fine in a burst; doing it for minutes means the
+        # API needs more CPU or replicas. See loadtest/README.md.
+        expr: sum(rate(nexusgate_inference_shed_total[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model inference is shedding load"
+          description: "{{ $value | humanize }} inferences/s refused; scale the API or cut rerank cost."
+
       - alert: NexusGateIngestBacklog
         expr: sum(nexusgate_rag_queue_depth) > 20
         for: 5m

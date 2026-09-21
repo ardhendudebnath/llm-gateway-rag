@@ -235,6 +235,31 @@
           "legendFormat": "{{alertname}} {{status}}"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Backpressure: inference waiting, shed and degraded",
+      "description": "Bounded model concurrency (app/core/concurrency.py). Degraded requests were still answered: without reranking, or without the cache.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (nexusgate_inference_waiting)",
+          "legendFormat": "waiting for {{model}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (model) (rate(nexusgate_inference_shed_total[1m]))",
+          "legendFormat": "{{model}} shed/s"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (mode) (rate(nexusgate_degraded_total[1m]))",
+          "legendFormat": "degraded: {{mode}}/s"
+        }
+      ]
     }
   ]
 }

@@ -12,7 +12,6 @@ BGE-family models expect an instruction prefix on retrieval queries but not on p
 fastembed's ``query_embed``/``passage_embed`` apply the right one per model.
 """
 
-import asyncio
 import hashlib
 import re
 from collections.abc import Sequence
@@ -20,6 +19,8 @@ from itertools import pairwise
 from typing import Protocol
 
 import numpy as np
+
+from app.core.concurrency import InferenceGate
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
@@ -75,24 +76,32 @@ class FastEmbedEmbedder:
     bakes them in, so pods never download models at startup).
     """
 
-    def __init__(self, model_name: str, cache_dir: str | None = None, threads: int | None = None):
+    def __init__(
+        self,
+        model_name: str,
+        cache_dir: str | None = None,
+        threads: int | None = None,
+        gate: InferenceGate | None = None,
+    ):
         from fastembed import TextEmbedding
 
         self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, threads=threads)
         self.dim = len(next(iter(self._model.embed(["dimension probe"]))))
+        # Bounded concurrency: see app/core/concurrency.py for the OOM this prevents.
+        self._gate = gate or InferenceGate("embedder", max_concurrency=2, max_queue=64)
 
     async def embed(self, text: str) -> np.ndarray:
-        vec = await asyncio.to_thread(lambda: next(iter(self._model.embed([text]))))
+        vec = await self._gate.run(lambda: next(iter(self._model.embed([text]))))
         return _normalise(np.asarray(vec, dtype=np.float32))
 
     async def embed_query(self, text: str) -> np.ndarray:
-        vec = await asyncio.to_thread(lambda: next(iter(self._model.query_embed(text))))
+        vec = await self._gate.run(lambda: next(iter(self._model.query_embed(text))))
         return _normalise(np.asarray(vec, dtype=np.float32))
 
     async def embed_documents(self, texts: Sequence[str]) -> np.ndarray:
         if not texts:
             return np.zeros((0, self.dim), dtype=np.float32)
-        rows = await asyncio.to_thread(lambda: list(self._model.passage_embed(list(texts))))
+        rows = await self._gate.run(lambda: list(self._model.passage_embed(list(texts))))
         return np.stack([_normalise(np.asarray(r, dtype=np.float32)) for r in rows])
 
 

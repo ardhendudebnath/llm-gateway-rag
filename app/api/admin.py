@@ -51,6 +51,43 @@ async def providers(services: Services = Depends(get_services)) -> dict:
     }
 
 
+class FaultRequest(BaseModel):
+    failure_rate: float = Field(ge=0, le=1, description="Share of calls to fail, 0 to 1.")
+
+
+def _faults(services: Services):
+    if services.router.faults is None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            detail="fault injection is disabled (set NEXUSGATE_FAULT_INJECTION_ENABLED=true)",
+        )
+    return services.router.faults
+
+
+@router.get("/faults", summary="Faults currently injected, per deployment")
+async def list_faults(services: Services = Depends(get_services)) -> dict:
+    return {"faults": await _faults(services).rates()}
+
+
+@router.put("/faults/{deployment}", summary="Make a deployment fail (chaos testing)")
+async def inject_fault(
+    deployment: str, body: FaultRequest, services: Services = Depends(get_services)
+) -> dict:
+    faults = _faults(services)
+    if deployment not in services.router.config.deployments:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no such deployment")
+    await faults.set(deployment, body.failure_rate)
+    return {"deployment": deployment, "failure_rate": body.failure_rate}
+
+
+@router.delete(
+    "/faults/{deployment}", status_code=status.HTTP_204_NO_CONTENT, summary="Stop a fault"
+)
+async def clear_fault(deployment: str, services: Services = Depends(get_services)) -> None:
+    if not await _faults(services).clear(deployment):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no fault on that deployment")
+
+
 @router.get("/dead-letters", summary="Ingestion jobs that failed for good")
 async def dead_letters(
     limit: int = Query(default=50, ge=1, le=500), services: Services = Depends(get_services)

@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app import __version__
 from app.api import account, admin, alerts, chat, health, rag
+from app.core.concurrency import OverloadedError
 from app.core.config import Settings, get_settings
 from app.core.container import Services, build_services
 from app.core.logging import configure_logging
@@ -41,6 +42,11 @@ def _install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(ClientRequestError)
     async def _client(_: Request, exc: ClientRequestError):
         return _error(400, "provider_rejected_request", str(exc))
+
+    @app.exception_handler(OverloadedError)
+    async def _overloaded(_: Request, exc: OverloadedError):
+        # Backpressure: a fast, retryable refusal instead of queueing into a timeout.
+        return _error(503, "overloaded", str(exc), headers={"Retry-After": "1"})
 
     @app.exception_handler(AllProvidersFailedError)
     async def _all_failed(_: Request, exc: AllProvidersFailedError):

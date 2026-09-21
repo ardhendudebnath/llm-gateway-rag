@@ -112,7 +112,8 @@ async def search(
     hits = await retriever.search(principal.tenant_id, body.query, body.top_k, rerank=body.rerank)
     return SearchResponse(
         query=body.query,
-        reranked=body.rerank and retriever.reranker is not None,
+        # From the hits, not the config: under load, reranking may have been skipped.
+        reranked=any(h.rerank_score is not None for h in hits),
         hits=[
             SearchHit(
                 doc_id=h.chunk.doc_id,

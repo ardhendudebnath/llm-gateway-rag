@@ -32,6 +32,13 @@ routes:
       model: mock-1
       options: { latency_ms: 80 }
       pricing: { input_per_mtok: 1.00, output_per_mtok: 5.00 }
+    # Slower and pricier on purpose: the chaos test shows what failing over costs, not just that
+    # it works. Only used when mock-primary fails (e.g. a fault injected via /v1/admin/faults).
+    - name: mock-secondary
+      provider: mock
+      model: mock-2
+      options: { latency_ms: 150 }
+      pricing: { input_per_mtok: 5.00, output_per_mtok: 25.00 }
 
   # Primary fails 100% of the time -> every request exercises fallback, then the breaker opens.
   chaos:

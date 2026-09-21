@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # reranker's spinning pools then fight over the CPU. Measured on a 24-core host: reranking 20
     # chunks took 929 ms with default pools and 242 ms with 4 threads per model.
     model_threads: int | None = Field(default=4, gt=0)
+    # Bounded inference (app/core/concurrency.py): how many run at once per model, and how many
+    # may wait before requests are shed. Unbounded, the load test OOM-killed the API at 50 users.
+    embed_max_concurrency: int = Field(default=2, gt=0)
+    embed_max_queue: int = Field(default=64, ge=0)
+    rerank_max_concurrency: int = Field(default=2, gt=0)
+    rerank_max_queue: int = Field(default=8, ge=0)
+    # Reranking is skipped if it can't start within this budget (0 = wait as long as the queue
+    # allows). Bounds RAG tail latency under load; vector order is the fallback.
+    rerank_max_wait_ms: float = Field(default=250, ge=0)
 
     # --- RAG ---
     qdrant_url: str = ":memory:"  # in-process Qdrant for dev/tests; http://qdrant:6333 in k8s
@@ -71,6 +80,8 @@ class Settings(BaseSettings):
     provider_timeout_seconds: float = 30.0
     breaker_failure_threshold: int = 3
     breaker_cooldown_seconds: float = 30.0
+    # Chaos testing: lets an admin make a deployment fail on demand. Off unless asked for.
+    fault_injection_enabled: bool = False
 
     # --- metering ---
     usage_retention_days: int = 90

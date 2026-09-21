@@ -8,6 +8,7 @@ import logging
 import time
 
 from app.cache.semantic_cache import CachedCompletion, SemanticCache
+from app.core.concurrency import OverloadedError
 from app.core.metering import UsageMeter
 from app.core.security import Principal
 from app.gateway.router import LLMRouter, UnknownModelError
@@ -140,10 +141,14 @@ class ChatService:
             ),
         )
 
-    # The cache is an optimisation: if it is unavailable, serve uncached rather than fail.
+    # The cache is an optimisation: if it is unavailable or saturated, serve uncached rather than
+    # fail. Saturation is expected under load, so it is counted, not logged as an error.
     async def _lookup(self, principal: Principal, request: ChatRequest):
         try:
             return await self._cache.lookup(principal.tenant_id, request)
+        except OverloadedError:
+            metrics.DEGRADED.labels("cache_skipped").inc()
+            return None
         except Exception:
             metrics.CACHE_LOOKUPS.labels("error").inc()
             log.exception("semantic cache lookup failed; serving uncached")
@@ -154,6 +159,8 @@ class ChatService:
     ):
         try:
             await self._cache.store(principal.tenant_id, request, completion)
+        except OverloadedError:
+            metrics.DEGRADED.labels("cache_store_skipped").inc()
         except Exception:
             log.exception("semantic cache store failed")
 

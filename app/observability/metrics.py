@@ -41,6 +41,20 @@ CACHE_COST_SAVED = Counter(
 
 RATE_LIMITED = Counter("nexusgate_rate_limited_total", "Requests rejected by the rate limiter")
 
+INFERENCE_WAITING = Gauge(
+    "nexusgate_inference_waiting", "Requests waiting for a model inference slot", ["model"]
+)
+INFERENCE_SHED = Counter(
+    "nexusgate_inference_shed_total",
+    "Inferences refused because too many were already waiting (backpressure)",
+    ["model"],
+)
+DEGRADED = Counter(
+    "nexusgate_degraded_total",
+    "Requests served in a degraded mode instead of failing",
+    ["mode"],  # cache_skipped | rerank_skipped
+)
+
 ALERTS_RECEIVED = Counter(
     "nexusgate_alerts_received_total",
     "Alerts delivered by Alertmanager to the gateway's webhook",
@@ -58,7 +72,8 @@ RAG_STAGE_LATENCY = Histogram(
     "nexusgate_rag_stage_duration_seconds",
     "Retrieval latency by stage",
     ["stage"],  # embed_query | vector_search | rerank
-    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5),
+    # Up to 10 s: the first load test's tail sat above the old 2.5 s top bucket, hiding its size.
+    buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
 )
 # Job counters live in Redis (the worker process has no /metrics endpoint of its own) and are
 # published as gauges when the API is scraped, so they are correct whichever process ran the job.
