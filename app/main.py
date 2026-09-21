@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app import __version__
+from app import __version__, demo
 from app.api import account, admin, alerts, chat, health, rag
 from app.core.concurrency import OverloadedError
 from app.core.config import Settings, get_settings
@@ -68,6 +68,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         owned = getattr(app.state, "services", None) is None
         if owned:
             app.state.services = await build_services(settings)
+        if settings.demo_mode:
+            app.state.demo_key = await demo.prepare_demo(app.state.services)
         try:
             yield
         finally:
@@ -88,4 +90,6 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     _install_error_handlers(app)
     for module in (health, chat, rag, account, admin, alerts):
         app.include_router(module.router)
+    if settings.demo_mode:
+        app.include_router(demo.router)
     return app

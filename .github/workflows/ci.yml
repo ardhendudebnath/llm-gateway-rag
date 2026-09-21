@@ -46,6 +46,30 @@ jobs:
       - name: The image starts and the app imports
         run: podman run --rm localhost/nexusgate-api:ci python -c "import app.main"
 
+  # The public demo is the artifact people actually see, so boot it and walk through it.
+  demo:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Build the one-container demo image
+        run: podman build --tag localhost/nexusgate-demo:ci --file Containerfile.demo .
+      - name: Start it and wait for the handbook to load
+        run: |
+          podman run -d --name demo -p 7860:7860 localhost/nexusgate-demo:ci
+          for _ in $(seq 90); do curl -sf localhost:7860/readyz >/dev/null && break; sleep 2; done
+          curl -sf localhost:7860/readyz
+      - name: Walk through it with the key from the landing page
+        run: |
+          pip install httpx
+          key=$(curl -sf localhost:7860/ | grep -o 'ng_[A-Za-z0-9_-]*' | head -n 1)
+          python scripts/demo.py --base-url http://localhost:7860 --key "$key" --pace 0
+      - name: Container logs
+        if: always()
+        run: podman logs demo
+
   k8s:
     runs-on: ubuntu-latest
     steps:

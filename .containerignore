@@ -2,8 +2,11 @@
 .git
 .github
 tests
-eval
+# The demo image ships the eval handbook as its pre-loaded corpus; nothing else from eval/.
+eval/*
+!eval/corpus
 infra
+loadtest
 scripts
 **/__pycache__
 .pytest_cache

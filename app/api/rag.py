@@ -27,6 +27,13 @@ async def upload_document(
     services: Services = Depends(get_services),
 ) -> IngestJob:
     """Parsing, chunking and embedding run in a worker, so a big PDF never blocks the caller."""
+    if services.settings.demo_mode:
+        # Everyone shares the demo tenant: accepting files would let one visitor serve them to
+        # the next. The handbook is pre-loaded instead (app/demo.py).
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="uploads are disabled in the public demo; a handbook is pre-loaded to query",
+        )
     max_bytes = services.rag.ingestion.max_bytes
     # Read one byte past the limit: enough to reject an oversized upload without reading it all.
     data = await file.read(max_bytes + 1)

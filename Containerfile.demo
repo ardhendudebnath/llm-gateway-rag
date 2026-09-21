@@ -1,0 +1,72 @@
+# Public demo: the whole gateway in ONE container, for free hosts such as Hugging Face Spaces.
+#
+#   podman build -f Containerfile.demo -t localhost/nexusgate-demo .
+#   podman run --rm -p 7860:7860 localhost/nexusgate-demo      # then open http://localhost:7860
+#
+# Differences from the production image (Containerfile), which runs on Kubernetes:
+#   * Redis runs inside the container, Qdrant runs in-process, ingestion runs in-process: one
+#     container, no other services. State is lost on restart, which suits a demo.
+#   * Offline mock routes only, a shared rate-limited key, uploads disabled (see app/demo.py).
+#   * Admin and JWT secrets are generated at start-up and never shown.
+#   * X-Forwarded-* headers are trusted from any address, so the landing page shows the host's
+#     https URL. Nothing security-relevant uses the client address: rate limits are per key.
+# The dependency and model layers match the production image.
+FROM docker.io/library/python:3.11-slim
+
+ARG EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+ARG RERANKER_MODEL=Xenova/ms-marco-MiniLM-L-6-v2
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends redis-server \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    LITELLM_LOCAL_MODEL_COST_MAP=True \
+    NEXUSGATE_MODEL_CACHE_DIR=/opt/models \
+    NEXUSGATE_EMBEDDING_MODEL=${EMBEDDING_MODEL} \
+    NEXUSGATE_RAG_RERANKER_MODEL=${RERANKER_MODEL}
+
+WORKDIR /srv
+
+COPY pyproject.toml ./
+RUN touch README.md && mkdir app && echo '__version__ = "0.0.0"' > app/__init__.py \
+    && pip install ".[embeddings]" && pip uninstall -y nexusgate
+
+RUN python -c "\
+from fastembed import TextEmbedding; \
+from fastembed.rerank.cross_encoder import TextCrossEncoder; \
+TextEmbedding('${EMBEDDING_MODEL}', cache_dir='/opt/models'); \
+TextCrossEncoder('${RERANKER_MODEL}', cache_dir='/opt/models')" \
+    && chmod -R a+rX /opt/models
+ENV HF_HUB_OFFLINE=1
+
+COPY app ./app
+COPY config ./config
+COPY eval/corpus ./eval/corpus
+RUN pip install --no-deps .
+
+ENV NEXUSGATE_ENV=prod \
+    NEXUSGATE_DEMO_MODE=true \
+    NEXUSGATE_ROUTES_FILE=config/routes.demo.yaml \
+    NEXUSGATE_REDIS_URL=redis://127.0.0.1:6379/0 \
+    NEXUSGATE_QDRANT_URL=:memory: \
+    NEXUSGATE_WORKER_MODE=inline \
+    NEXUSGATE_EMBEDDING_BACKEND=fastembed \
+    NEXUSGATE_RAG_RERANKER=cross-encoder \
+    NEXUSGATE_CACHE_INDEX_BACKEND=bruteforce \
+    PORT=7860
+
+# Hugging Face Spaces runs containers as uid 1000.
+RUN useradd --create-home --uid 1000 demo
+USER 1000
+
+EXPOSE 7860
+CMD ["sh", "-c", "\
+redis-server --port 6379 --bind 127.0.0.1 --save '' --appendonly no --dir /tmp --daemonize yes \
+&& export NEXUSGATE_ADMIN_TOKEN=$(python -c 'import secrets; print(secrets.token_urlsafe(32))') \
+&& export NEXUSGATE_JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(48))') \
+&& exec uvicorn app.main:create_app --factory --host 0.0.0.0 --port ${PORT} \
+   --proxy-headers --forwarded-allow-ips '*'"]

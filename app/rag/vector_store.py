@@ -10,6 +10,7 @@ document, or a retried ingestion job in week 5, overwrites points instead of dup
 """
 
 import uuid
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -60,17 +61,20 @@ class QdrantChunkStore:
                 # Replicas starting together race to create it; losing that race is fine.
                 if "already exists" not in str(e).lower():
                     raise
-        # Idempotent on the server. Ignored (with a warning) by the in-memory client used in tests.
-        await self._client.create_payload_index(
-            self.collection,
-            "tenant_id",
-            field_schema=models.KeywordIndexParams(
-                type=models.KeywordIndexType.KEYWORD, is_tenant=True
-            ),
-        )
-        await self._client.create_payload_index(
-            self.collection, "doc_id", field_schema=models.PayloadSchemaType.KEYWORD
-        )
+        # Idempotent on the server. The in-memory client (tests, the public demo) has no payload
+        # indexes and says so on every start; that is expected, so keep it out of the logs.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Payload indexes have no effect")
+            await self._client.create_payload_index(
+                self.collection,
+                "tenant_id",
+                field_schema=models.KeywordIndexParams(
+                    type=models.KeywordIndexType.KEYWORD, is_tenant=True
+                ),
+            )
+            await self._client.create_payload_index(
+                self.collection, "doc_id", field_schema=models.PayloadSchemaType.KEYWORD
+            )
 
     async def replace_document(
         self,

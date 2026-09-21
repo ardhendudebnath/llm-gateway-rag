@@ -93,6 +93,12 @@ class Settings(BaseSettings):
     langfuse_host: str = "https://cloud.langfuse.com"
     langfuse_environment: str | None = None  # defaults to `env`
 
+    # --- public demo (app/demo.py): shared rate-limited key, offline routes, uploads disabled ---
+    demo_mode: bool = False
+    demo_rate_limit_capacity: int = Field(default=20, gt=0)
+    demo_rate_limit_refill_per_sec: float = Field(default=0.5, gt=0)
+    demo_corpus_dir: Path = Path("eval/corpus")
+
     @property
     def tracing_configured(self) -> bool:
         return bool(self.tracing_enabled and self.langfuse_public_key and self.langfuse_secret_key)

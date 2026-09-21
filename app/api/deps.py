@@ -1,6 +1,7 @@
 """FastAPI dependencies: service access, authentication, rate limiting, admin guard."""
 
-from fastapi import Depends, Header, HTTPException, Request, Response, status
+from fastapi import Depends, Header, HTTPException, Request, Response, Security, status
+from fastapi.security import HTTPBearer
 
 from app.core.container import Services
 from app.core.security import (
@@ -23,6 +24,11 @@ def _unauthorized(message: str) -> HTTPException:
     )
 
 
+# Only declares the scheme in OpenAPI, which gives /docs its "Authorize" button. The header is
+# parsed by _credentials, which also accepts X-API-Key.
+_bearer = HTTPBearer(auto_error=False, description="An API key (ng_...) or a JWT")
+
+
 def _credentials(request: Request) -> tuple[str | None, str | None]:
     """Return (api_key, jwt) — exactly one is set if credentials were supplied."""
     if api_key := request.headers.get("x-api-key"):
@@ -36,7 +42,11 @@ def _credentials(request: Request) -> tuple[str | None, str | None]:
     return (value, None) if value.startswith(KEY_PREFIX) else (None, value)
 
 
-async def authenticate(request: Request, services: Services = Depends(get_services)) -> Principal:
+async def authenticate(
+    request: Request,
+    services: Services = Depends(get_services),
+    _scheme: object = Security(_bearer),
+) -> Principal:
     api_key, token = _credentials(request)
     try:
         if api_key is not None:
@@ -54,7 +64,9 @@ async def authenticate(request: Request, services: Services = Depends(get_servic
 
 
 async def authenticate_api_key(
-    request: Request, services: Services = Depends(get_services)
+    request: Request,
+    services: Services = Depends(get_services),
+    _scheme: object = Security(_bearer),
 ) -> Principal:
     """Like ``authenticate`` but rejects JWTs — used by the token-exchange endpoint."""
     api_key, _ = _credentials(request)
