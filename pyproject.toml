@@ -48,8 +48,8 @@ asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 addopts = "-ra"
 filterwarnings = [
-    # Tests use Qdrant's in-process mode, which accepts but ignores payload indexes.
-    "ignore:Payload indexes have no effect in the local Qdrant:UserWarning",
+    # Raised inside LiteLLM's own types when pydantic builds a schema for them; not our code.
+    "ignore:Item 'summary' on TypedDict class 'ChatCompletionReasoningItem':UserWarning",
 ]
 
 [tool.coverage.run]
