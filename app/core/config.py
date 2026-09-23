@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     def broker_url(self) -> str:
         return self.celery_broker_url or self.redis_url
 
+    # --- agent (app/agents): the step budget is the graph's safety net against a cycle ---
+    agent_max_steps: int = Field(default=12, gt=0)
+
     # --- gateway resilience ---
     provider_timeout_seconds: float = 30.0
     breaker_failure_threshold: int = 3

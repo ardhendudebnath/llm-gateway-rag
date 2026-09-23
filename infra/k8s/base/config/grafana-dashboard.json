@@ -260,6 +260,46 @@
           "legendFormat": "degraded: {{mode}}/s"
         }
       ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent runs: outcomes and steps",
+      "description": "One run is several LLM calls (app/agents). budget_exceeded means a critique/revise cycle hit the step budget and the last draft was returned.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(nexusgate_agent_runs_total[5m]))",
+          "legendFormat": "{{outcome}}/s"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (node) (rate(nexusgate_agent_steps_total[5m]))",
+          "legendFormat": "step: {{node}}/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent run duration p95, and revisions per run",
+      "description": "A multi-step run is slower and dearer than /v1/rag/answer by design; this is what that costs.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 }, "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(nexusgate_agent_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 run"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(nexusgate_agent_revisions_sum[5m])) / clamp_min(sum(rate(nexusgate_agent_revisions_count[5m])), 0.001)",
+          "legendFormat": "revisions per run"
+        }
+      ]
     }
   ]
 }

@@ -31,6 +31,11 @@ Context passages:
 _CITATION = re.compile(r"\[(\d+)\]")
 
 
+def cited_numbers(answer: str) -> set[int]:
+    """The passage numbers an answer actually cites, e.g. {1, 3} for "... [1] ... [3]"."""
+    return {int(n) for n in _CITATION.findall(answer)}
+
+
 def _label(hit: RetrievedChunk) -> str:
     parts = [hit.chunk.title]
     if hit.chunk.page is not None:
@@ -77,7 +82,7 @@ class RagService:
             ),
         )
         answer = response.choices[0].message.content
-        cited = {int(n) for n in _CITATION.findall(answer)}
+        cited = cited_numbers(answer)
         return AnswerResponse(
             answer=answer,
             citations=[

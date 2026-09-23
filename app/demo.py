@@ -113,6 +113,15 @@ failed attempt and the fallback that answered.</p>
 <p>A fictional engineering handbook is pre-loaded. Answers come with numbered citations;
 <code>/v1/rag/search</code> shows the reranked passages.</p>
 
+<h2>4. Let the agent work</h2>
+<pre>curl -s {base}/v1/agents/research \\
+  -H "Authorization: Bearer {key}" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"question": "How do we handle a SEV1?", "model": "mock"}}'</pre>
+<p>It plans its own searches, merges the results, drafts a cited answer, then criticises and
+revises it. The response lists every transition, and what the run cost.
+<a href="/v1/agents/graph">The graph itself</a> is an endpoint too.</p>
+
 <h2>More</h2>
 <ul>
   <li><a href="/docs">API docs</a> · <a href="/metrics">Prometheus metrics</a> ·

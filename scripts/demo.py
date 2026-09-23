@@ -139,7 +139,20 @@ def main() -> int:
         if not answer["citations"]:
             show("answer", answer["answer"], YELLOW)
 
-        step(7, "Usage and spend, including what the cache saved", args.pace)
+        step(7, "The agent: plan, retrieve, draft, self-critique, revise", args.pace)
+        run = api.post(
+            "/v1/agents/research",
+            headers=auth,
+            json={"question": "How do we handle a SEV1?", "model": "mock", "max_revisions": 1},
+        ).json()
+        # The planned queries themselves are only interesting with a real model: the mock
+        # provider echoes the prompt back, so show what the run did with them instead.
+        show("searches", f"{len(run['searches'])} planned, {len(run['citations'])} passages kept")
+        show("path", " -> ".join(s["node"] for s in run["steps"]))
+        show("revisions", run["revisions"])
+        show("cost of the run", f"${run['cost_usd']:.6f} over {run['llm_calls']} calls")
+
+        step(8, "Usage and spend, including what the cache saved", args.pace)
         totals = api.get("/v1/usage", params={"days": 1}, headers=auth).json()["totals"]
         show("requests", totals["requests"])
         show("cache hits", totals["cache_hits"], GREEN)

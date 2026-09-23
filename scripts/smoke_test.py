@@ -3,11 +3,10 @@
     python scripts/smoke_test.py --admin-token <token> [--prometheus-url http://localhost:9090]
 
 Goes through the real network path: key issuance, a cache miss then a hit, fallback on the `chaos`
-route, usage metering, /metrics, RAG (upload queued to a worker, search, a cited answer), and
-(optionally) Prometheus
-scraping every API replica. It only uses the offline mock routes, so it needs no provider API keys
-and spends nothing. It cleans up the key, cache entries and document it creates, and exits non-zero
-on the first failed check.
+route, usage metering, /metrics, RAG (upload queued to a worker, search, a cited answer), an agent
+run through its state graph, and (optionally) Prometheus scraping every API replica. It only uses
+the offline mock routes, so it needs no provider API keys and spends nothing. It cleans up the key,
+cache entries and document it creates, and exits non-zero on the first failed check.
 """
 
 import argparse
@@ -160,6 +159,23 @@ def check_rag(api: httpx.Client, auth: dict, job_timeout: float) -> None:
         answer = r.json()
         check(answer["citations"] and answer["nexusgate"], f"answer: {answer}")
         ok(f"RAG answer via the mock route with {len(answer['citations'])} numbered passages")
+
+        r = api.post(
+            "/v1/agents/research",
+            headers=auth,
+            json={
+                "question": "How do I restart the billing worker?",
+                "model": "mock",
+                "max_revisions": 1,
+            },
+        )
+        check(r.status_code == 200, f"agent run: {r.status_code} {r.text}")
+        run = r.json()
+        path = [s["node"] for s in run["steps"]]
+        check(path[:3] == ["plan", "retrieve", "draft"], f"agent path: {path}")
+        check(run["citations"] and run["llm_calls"] >= 3, f"agent run: {run}")
+        steps = " -> ".join(path)
+        ok(f"agent: {steps} in {run['llm_calls']} calls, {run['revisions']} revision(s)")
     finally:
         api.delete(f"/v1/rag/documents/{doc['doc_id']}", headers=auth)
 

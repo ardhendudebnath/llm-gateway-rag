@@ -7,7 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import __version__, demo
-from app.api import account, admin, alerts, chat, health, rag
+from app.api import account, admin, agents, alerts, chat, health, rag
 from app.core.concurrency import OverloadedError
 from app.core.config import Settings, get_settings
 from app.core.container import Services, build_services
@@ -88,7 +88,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     app.add_middleware(RequestContextMiddleware)
     _install_error_handlers(app)
-    for module in (health, chat, rag, account, admin, alerts):
+    for module in (health, chat, rag, agents, account, admin, alerts):
         app.include_router(module.router)
     if settings.demo_mode:
         app.include_router(demo.router)

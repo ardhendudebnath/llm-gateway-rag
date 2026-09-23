@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ardhendudebnath/llm-gateway-rag/actions/workflows/ci.yml/badge.svg)](https://github.com/ardhendudebnath/llm-gateway-rag/actions/workflows/ci.yml)
 
-**NexusGate is a self-hosted LLM gateway and RAG backend: one OpenAI-compatible API in front of several model providers, with automatic fallback, circuit breakers and a tenant-isolated semantic cache.** Documents uploaded to it are ingested by background workers into Qdrant, and questions about them get reranked answers with numbered citations, served through the same gateway path. Every request is authenticated, rate-limited, metered in tokens and dollars, traced and exported to Prometheus, and the whole stack runs on Kubernetes, load-tested and chaos-tested.
+**NexusGate is a self-hosted LLM gateway and RAG backend: one OpenAI-compatible API in front of several model providers, with automatic fallback, circuit breakers and a tenant-isolated semantic cache.** Documents uploaded to it are ingested by background workers into Qdrant, and questions about them get reranked answers with numbered citations — either in one retrieval, or from a multi-step agent that plans its own searches and reviews its draft before answering. Every request is authenticated, rate-limited, metered in tokens and dollars, traced and exported to Prometheus, and the whole stack runs on Kubernetes, load-tested and chaos-tested.
 
 **Try it in one container** (offline mock providers, no API keys, nothing to pay for):
 
@@ -31,6 +31,8 @@ flowchart LR
     G -->|/v1/rag/answer| RAG[RAG orchestrator<br/>embed · Qdrant · rerank]
     RAG --> QD[(Qdrant)]
     RAG -->|augmented prompt| SC
+    G -->|/v1/agents/research| AG[Research agent<br/>plan · retrieve · draft<br/>critique · revise]
+    AG --> RAG
     U[Document upload] -->|202 + job id| Q[[Celery queue<br/>Redis]]
     Q --> W[Ingestion workers<br/>parse · chunk · embed]
     W --> QD
@@ -51,7 +53,7 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 48 labelled questions | **recall@5 1.000, MRR 0.990** |
-| Tests | **227** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
+| Tests | **265** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
 
@@ -136,6 +138,12 @@ curl -s localhost:8000/v1/rag/search -H "Authorization: Bearer ng_..." \
 curl -s localhost:8000/v1/rag/answer -H "Authorization: Bearer ng_..." \
   -H "Content-Type: application/json" \
   -d '{"question": "When is a postmortem due?", "model": "default"}'
+
+# Or let the agent plan the searches, draft, criticise itself and revise.
+# The response lists every transition it took, and what the run cost.
+curl -s localhost:8000/v1/agents/research -H "Authorization: Bearer ng_..." \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How do we handle a SEV1?", "model": "default"}'
 ```
 
 Because the API is OpenAI-compatible, existing SDKs work unchanged:
@@ -157,14 +165,15 @@ uvicorn app.main:create_app --factory --reload               # needs a Redis on 
 
 ## Demo walkthrough
 
-[`scripts/demo.py`](scripts/demo.py) tells the whole story in seven narrated steps, paced for a screen recording:
+[`scripts/demo.py`](scripts/demo.py) tells the whole story in eight narrated steps, paced for a screen recording:
 1. Readiness.
 2. A chat request goes to a provider.
 3. The same question again is a semantic-cache hit: $0 and a few milliseconds.
 4. A failing provider, and the fallback that answers.
 5. An upload that is queued and then ingested by a worker.
 6. A cited RAG answer.
-7. Spend and cache savings.
+7. An agent run: the path it took through the graph, and what it cost.
+8. Spend and cache savings.
 
 It uses only the offline routes, so it costs nothing.
 
@@ -219,6 +228,8 @@ python scripts/deploy_space.py <hf-user>/nexusgate      # add --private to try i
 | `DELETE /v1/rag/documents/{id}` | key / JWT | Delete a document and its chunks |
 | `POST /v1/rag/search` | key / JWT | Top-k passages with vector and rerank scores |
 | `POST /v1/rag/answer` | key / JWT | Grounded answer with numbered citations; no LLM call when nothing matches |
+| `POST /v1/agents/research` | key / JWT | Multi-step agent: plans searches, drafts a cited answer, critiques and revises it; reports every transition and what the run cost |
+| `GET /v1/agents/graph` | key / JWT | The agent's nodes, allowed transitions and a Mermaid diagram |
 | `POST/GET/DELETE /v1/admin/keys` | admin token | Issue, list, revoke API keys |
 | `GET /v1/admin/providers` | admin token | Route table + live circuit-breaker states |
 | `GET/DELETE /v1/admin/dead-letters` | admin token | Jobs that failed for good; inspect or clear |
@@ -254,6 +265,13 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Answers go through the normal chat path**, so they get fallback, circuit breaking, metering and the semantic cache. Retrieved passages sit in the system message, which is part of the cache namespace, so an answer is only reused when the *same* passages were retrieved. If nothing matches, the API says so without calling an LLM, so there is no cost and no invented answer.
 - **Retrieved text is untrusted.** The prompt tells the model to treat passages as data and ignore instructions inside them. Uploads are type-checked, size-capped, and rejected if they contain NUL bytes (binaries disguised as text).
 - **A 4× latency fix came from profiling.** Reranking first measured ~1 s per query: ONNX Runtime gave each model a 24-thread pool and the two pools fought over the CPU. Capping threads per model (`NEXUSGATE_MODEL_THREADS=4`) brought it to ~230 ms with identical scores.
+
+**The agent is an explicit state graph, not a loop with a prompt.** `POST /v1/agents/research` plans its own searches, merges the results, drafts a cited answer, then critiques that draft against the passages and revises it. The [engine](app/agents/graph.py) is ~90 lines, with no agent framework, for the same reason RAG has none: every transition is inspectable and unit-tested.
+- **The graph is data, and it is published.** `GET /v1/agents/graph` returns the nodes, the allowed transitions and a Mermaid diagram — all generated from the definition the service actually runs, so a picture of the agent can't drift from its behaviour.
+- **A run is bounded in two ways.** A node may only move to a target its edges declare, so no prompt (and no model inventing a step name) can steer the run off the graph; and a step budget ends a critique/revise cycle that won't settle. A budgeted-out run still returns its last draft and its path, rather than failing.
+- **Degrade per step, except when the failure dooms the run.** A failed plan falls back to searching for the question as asked, and a failed reviewer keeps the draft. But an unknown route, a bad request, shedding or every provider being down [fails immediately](app/agents/nodes.py), because paying for retrieval and a draft before hitting the same error is worse than failing now.
+- **Every step goes through the gateway**, so the agent inherits fallback, circuit breaking, the cache, metering and tracing. Multi-step means multi-cost, so each response reports its own `llm_calls` and `cost_usd`, and each run is one trace with a completion per step.
+- **Retrieved text stays untrusted at every step.** Each prompt that shows passages repeats that they are data, so a document can't steer the agent's later steps.
 
 **Degrade before failing, and shed before falling over.** The load test showed that unbounded model inference takes the API down: dozens of simultaneous ONNX runs pushed the pods past their memory limit. Each model now sits behind an [`InferenceGate`](app/core/concurrency.py): a fixed number of inferences run at once, a bounded number wait, and the rest are refused immediately.
 - **Callers degrade first.** A saturated reranker means vector order is returned; a saturated embedder means chat skips the cache and still answers.
@@ -297,13 +315,14 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 
 ```
 app/
-  api/            FastAPI routers: chat, rag, account, admin, alerts, health
+  api/            FastAPI routers: chat, rag, agents, account, admin, alerts, health
   core/           config, auth (API keys + JWT), rate limiting, metering, embeddings,
                   bounded inference, logging, DI
   gateway/        provider adapters, routing config, circuit breaker, router, pricing,
                   fault injection, chat service
   cache/          semantic cache (bruteforce / RediSearch indexes)
   rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
+  agents/         the state-graph engine, the research agent's nodes, prompts and run state
   workers/        job records + DLQ, upload payloads, queues (celery / inline), Celery entry point
   observability/  Prometheus metrics, request-ID middleware, Langfuse tracing
   demo.py         public demo mode: shared key, pre-loaded handbook, landing page
@@ -336,12 +355,14 @@ Eight weekly milestones, following the project spec:
 | 6 | Langfuse tracing, Grafana dashboard, alerting | ✅ |
 | 7 | Locust load test, breaking point, chaos test | ✅ breaking point found and fixed; 0 failures when a provider dies ([results](loadtest/README.md)) |
 | 8 | README, demo GIF, one-container demo, live deployment | ✅ except the live URL: `scripts/deploy_space.py` is ready and waits on a Hugging Face login |
+| — | Beyond the roadmap: the agent layer the spec lists as a stretch feature (§4.7) | ✅ [`app/agents`](app/agents): an explicit state graph, published as a diagram |
 
 ## What I'd do with more time
 
 - Shared circuit-breaker state across replicas.
 - Streaming (SSE) responses.
 - Hybrid retrieval (BM25 + dense), and an LLM-judged eval of answer faithfulness.
+- An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. It needs a real provider, so the offline test suite can't answer it.
 - A model-comparison harness that feeds back into route ordering.
 - A HorizontalPodAutoscaler driven by CPU and inference queue depth: the load test showed CPU is now the limit.
 - GPU inference or a smaller reranker, to lower the RAG latency floor.

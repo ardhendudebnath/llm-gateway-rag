@@ -91,3 +91,18 @@ RAG_JOB_SECONDS = Gauge(
 RAG_EMPTY_RETRIEVALS = Counter(
     "nexusgate_rag_empty_retrievals_total", "Answer requests where no passage matched (no LLM call)"
 )
+
+AGENT_RUNS = Counter(
+    "nexusgate_agent_runs_total",
+    "Agent runs by outcome",
+    ["outcome"],  # answered | no_context | budget_exceeded
+)
+AGENT_STEPS = Counter("nexusgate_agent_steps_total", "Agent graph transitions by node", ["node"])
+AGENT_REVISIONS = Histogram(
+    "nexusgate_agent_revisions", "Revisions per agent run", buckets=(0, 1, 2, 3)
+)
+AGENT_DURATION = Histogram(
+    "nexusgate_agent_duration_seconds",
+    "Wall time of a whole agent run",
+    buckets=(0.25, 0.5, 1, 2.5, 5, 10, 20, 40, 80),
+)

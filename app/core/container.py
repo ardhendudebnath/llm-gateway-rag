@@ -12,6 +12,7 @@ from qdrant_client import AsyncQdrantClient
 from redis.asyncio import Redis
 
 from app import __version__
+from app.agents.service import ResearchAgent
 from app.cache.semantic_cache import BruteForceIndex, RediSearchIndex, SemanticCache
 from app.core.concurrency import InferenceGate
 from app.core.config import Settings
@@ -72,6 +73,7 @@ class Services:
     chat: ChatService
     tracer: Tracer
     rag: RagComponents
+    agent: ResearchAgent
 
     async def aclose(self) -> None:
         self.tracer.shutdown()  # flush buffered traces before the process exits
@@ -265,6 +267,17 @@ async def build_services(
 
     meter = UsageMeter(redis, settings.usage_retention_days)
     chat = ChatService(router, cache, meter, tracer)
+    rag = await build_rag(
+        settings,
+        redis,
+        cache_redis,
+        embedder,
+        chat,
+        tracer,
+        qdrant=qdrant,
+        reranker=reranker,
+        job_queue=job_queue,
+    )
     return Services(
         settings=settings,
         redis=redis,
@@ -279,15 +292,6 @@ async def build_services(
         meter=meter,
         chat=chat,
         tracer=tracer,
-        rag=await build_rag(
-            settings,
-            redis,
-            cache_redis,
-            embedder,
-            chat,
-            tracer,
-            qdrant=qdrant,
-            reranker=reranker,
-            job_queue=job_queue,
-        ),
+        rag=rag,
+        agent=ResearchAgent(rag.retriever, chat, tracer, max_steps=settings.agent_max_steps),
     )
