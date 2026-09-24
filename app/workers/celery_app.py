@@ -78,10 +78,11 @@ def _shutdown_worker(**_kwargs) -> None:
 def ingest_document(self, job_id: str, tenant_id: str, payload_id: str) -> dict:
     """Run one ingestion attempt. Retry policy and failure handling live in IngestionJobService."""
     services = _get_services()
-    attempt = self.request.retries + 1
     try:
-        job = _run(services.rag.jobs.execute(tenant_id, job_id, payload_id, attempt=attempt))
+        job = _run(services.rag.jobs.execute(tenant_id, job_id, payload_id))
     except TransientJobError as e:
-        countdown = _settings.job_retry_backoff_seconds * 2 ** (attempt - 1)
+        # Backoff only; how many attempts a job gets is the service's decision, counted per job
+        # in Redis so that a redelivery after a worker died still counts.
+        countdown = _settings.job_retry_backoff_seconds * 2**self.request.retries
         raise self.retry(exc=e, countdown=countdown) from e
     return {"job_id": job_id, "status": job.status.value if job else "gone"}

@@ -1,0 +1,162 @@
+# prometheus-adapter: makes one Prometheus series readable through the Kubernetes metrics API, so
+# a HorizontalPodAutoscaler can scale on ingestion queue depth rather than CPU.
+#
+# CPU tells you a worker is busy; it never tells you that work is piling up. Queue depth does, and
+# it is the number the spec asks to autoscale on, so it is what the worker HPA targets
+# (infra/k8s/base/autoscaling.yaml).
+#
+# The chain: the API publishes nexusgate_rag_queue_depth (read from Redis, so it is correct
+# whichever process ran the job) -> Prometheus scrapes it -> this adapter serves it under
+# external.metrics.k8s.io -> the HPA reads it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-adapter
+---
+# Its config is a generated ConfigMap (see kustomization.yaml), so editing config/prometheus-adapter.yaml
+# changes the hash and rolls this pod onto the new rules.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-adapter
+  labels:
+    app.kubernetes.io/name: prometheus-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus-adapter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: prometheus-adapter
+    spec:
+      serviceAccountName: prometheus-adapter
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: adapter
+          image: registry.k8s.io/prometheus-adapter/prometheus-adapter:v0.12.0
+          args:
+            - --prometheus-url=http://prometheus:9090
+            - --config=/etc/adapter/config.yaml
+            - --metrics-relist-interval=30s
+            # No --tls-cert-file: the apiserver library generates a self-signed serving
+            # certificate into --cert-dir, and the APIService below skips verifying it. Fine
+            # inside the cluster; a real deployment would mount a cert from cert-manager.
+            - --cert-dir=/tmp/certs
+            - --secure-port=6443
+          ports:
+            - name: https
+              containerPort: 6443
+          livenessProbe:
+            httpGet: { path: /livez, port: https, scheme: HTTPS }
+            initialDelaySeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            httpGet: { path: /readyz, port: https, scheme: HTTPS }
+            initialDelaySeconds: 10
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: config
+              mountPath: /etc/adapter
+              readOnly: true
+            - name: certs
+              mountPath: /tmp/certs
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-adapter-config
+        - name: certs
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-adapter
+  labels:
+    app.kubernetes.io/name: prometheus-adapter
+spec:
+  selector:
+    app.kubernetes.io/name: prometheus-adapter
+  ports:
+    - name: https
+      port: 443
+      targetPort: https
+---
+# Registers the adapter as the cluster's provider of external metrics.
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1beta1.external.metrics.k8s.io
+spec:
+  service:
+    name: prometheus-adapter
+    namespace: nexusgate
+    port: 443
+  group: external.metrics.k8s.io
+  version: v1beta1
+  insecureSkipTLSVerify: true
+  groupPriorityMinimum: 100
+  versionPriority: 100
+---
+# An extension API server must be able to authenticate the callers the main apiserver forwards,
+# and read the cluster's request-header config to do it.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nexusgate-prometheus-adapter-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-adapter
+    namespace: nexusgate
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nexusgate-prometheus-adapter
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "pods", "services"]
+    verbs: ["get", "list", "watch"]
+  # Reading the request-header config is how it authenticates callers the apiserver forwards.
+  # Upstream grants this with a RoleBinding to a Role in kube-system; that can't work here,
+  # because this base sets `namespace: nexusgate` and kustomize's namespace transformer rewrites
+  # every namespaced resource it ships, RoleBindings included. A ClusterRole is cluster-scoped, so
+  # it survives, and resourceNames keeps the grant to the single ConfigMap the built-in Role names.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["extension-apiserver-authentication"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nexusgate-prometheus-adapter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nexusgate-prometheus-adapter
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-adapter
+    namespace: nexusgate

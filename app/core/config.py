@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     def broker_url(self) -> str:
         return self.celery_broker_url or self.redis_url
 
+    # Chunks per embedding batch. Bounds the memory one document can demand: a worker was
+    # OOM-killed embedding a large file's chunks in a single call (see loadtest/RESULTS.md).
+    embed_batch_size: int = Field(default=32, gt=0)
+
     # --- agent (app/agents): the step budget is the graph's safety net against a cycle ---
     agent_max_steps: int = Field(default=12, gt=0)
 

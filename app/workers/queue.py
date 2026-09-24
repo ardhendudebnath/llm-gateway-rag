@@ -66,7 +66,7 @@ class InlineJobQueue:
     async def _run(self, job: IngestJob, payload_id: str) -> None:
         for attempt in range(1, self._service.max_attempts + 1):
             try:
-                await self._service.execute(job.tenant_id, job.job_id, payload_id, attempt=attempt)
+                await self._service.execute(job.tenant_id, job.job_id, payload_id)
                 return
             except TransientJobError:
                 await asyncio.sleep(self._backoff * 2 ** (attempt - 1))

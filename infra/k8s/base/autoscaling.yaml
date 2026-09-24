@@ -1,0 +1,84 @@
+# Autoscaling, on the two signals the load test showed actually matter.
+#
+# The API is CPU-bound: the breaking point at 50 users was model inference, and after bounding it
+# (app/core/concurrency.py) CPU became the ceiling, so CPU is the right trigger.
+#
+# The worker is not. It can sit at low CPU while a queue builds behind it, because ingestion waits
+# on Qdrant and Redis as much as it computes. Queue depth is the number that says "work is piling
+# up", so that is what it scales on (prometheus-adapter.yaml serves it).
+#
+# Both are deliberately small ranges: this stack is sized for one laptop, and a HPA that can ask
+# for more pods than the node can run just creates Pending pods.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2 # never below 2: the base keeps two replicas for rolling updates
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70 # of the 250m request, so ~175m per pod
+  behavior:
+    scaleUp:
+      # 2 minutes, not seconds, and the reason is measured: a fresh pod loads the embedding and
+      # reranking models, which pegs its CPU for about a minute. A short window read that
+      # start-up spike as load and scaled 2 -> 4 on an idle cluster, and each added pod loads the
+      # models too, so the spike feeds itself. Real traffic lasts longer than a roll does.
+      stabilizationWindowSeconds: 120
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 60 }
+    scaleDown:
+      # Shrink slowly. Each new pod pays that same start-up cost, so flapping is expensive.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 120 }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: nexusgate_ingest_queue_depth
+        target:
+          # AverageValue divides the queue by the number of worker pods, so "more than 5 jobs
+          # waiting per worker" is what adds one. A worker runs 2 tasks at a time, so a depth of
+          # 5 per pod means a couple of minutes of backlog, not a blip.
+          type: AverageValue
+          averageValue: "5"
+  # Queue depth only, and no CPU metric, which the autoscaling test settled by experiment: one
+  # ingest job saturates a worker's CPU (3355% of its request was measured), so a CPU target
+  # scaled the workers out while the queue was *empty* — paying for pods that load models to do
+  # work nobody is waiting for. A HPA takes whichever metric asks for most, so leaving CPU in
+  # would have meant it always won. See loadtest/RESULTS.md.
+  behavior:
+    scaleUp:
+      # Shorter than the API's: ingestion is asynchronous, so a minute of queueing is cheap, and
+      # this still rides out a worker's model-loading spike.
+      stabilizationWindowSeconds: 60
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 60 }
+    scaleDown:
+      # Long window: a worker killed mid-job would have its task redelivered (acks_late), so
+      # there is nothing to lose but time, and scaling down into a fresh burst is worse.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 120 }

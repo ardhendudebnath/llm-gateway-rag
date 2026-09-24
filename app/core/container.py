@@ -102,6 +102,7 @@ def build_embedder(settings: Settings) -> Embedder:
                 max_concurrency=settings.embed_max_concurrency,
                 max_queue=settings.embed_max_queue,
             ),
+            batch_size=settings.embed_batch_size,
         )
     return HashingEmbedder()
 

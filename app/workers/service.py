@@ -73,10 +73,13 @@ class IngestionJobService:
         )
         return job
 
-    async def execute(
-        self, tenant_id: str, job_id: str, payload_id: str, *, attempt: int
-    ) -> IngestJob | None:
-        """Run one attempt. Raises TransientJobError when the caller should retry later."""
+    async def execute(self, tenant_id: str, job_id: str, payload_id: str) -> IngestJob | None:
+        """Run one attempt. Raises TransientJobError when the caller should retry later.
+
+        The attempt number comes from the job's own delivery count, not from the caller: a job
+        whose worker is killed is redelivered with the caller's count reset, so counting there
+        cannot stop a job that keeps killing workers.
+        """
         job = await self._jobs.get(tenant_id, job_id)
         if job is None:  # the record outlived its retention, or never existed
             log.warning("ingestion job record is gone", extra={"job_id": job_id})
@@ -86,6 +89,16 @@ class IngestionJobService:
         # request can be followed from the API's access log into the worker's.
         if job.request_id:
             request_id_var.set(job.request_id)
+        attempt = await self._jobs.start_attempt(tenant_id, job_id)
+        if attempt > self.max_attempts:
+            # Every previous delivery ended without this job reporting a failure, so it took its
+            # worker down with it. Stop, before it takes down the rest of them.
+            return await self._fail(
+                job,
+                f"job was delivered {attempt} times without completing; "
+                "it may be killing its worker",
+                False,
+            )
         job.status = JobStatus.PROCESSING
         job.attempts = attempt
         await self._jobs.save(job)

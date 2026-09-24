@@ -91,7 +91,7 @@ async def test_execute_ingests_and_marks_the_job_done(make_service):
     job = await service.submit("acme", upload())
     payload_id = queue.enqueued[0][1]
 
-    done = await service.execute("acme", job.job_id, payload_id, attempt=1)
+    done = await service.execute("acme", job.job_id, payload_id)
 
     assert done.status is JobStatus.DONE
     assert (done.doc_id, done.chunks, done.attempts) == ("doc123", 3, 1)
@@ -107,7 +107,7 @@ async def test_a_bad_document_fails_at_once_without_retrying(make_service):
     service, queue, store, dlq = make_service(ingestion)
     job = await service.submit("acme", upload())
 
-    failed = await service.execute("acme", job.job_id, queue.enqueued[0][1], attempt=1)
+    failed = await service.execute("acme", job.job_id, queue.enqueued[0][1])
 
     assert failed.status is JobStatus.FAILED and failed.retryable is False
     assert "no extractable text" in failed.error
@@ -122,14 +122,14 @@ async def test_a_transient_failure_asks_for_a_retry_then_succeeds(make_service):
     payload_id = queue.enqueued[0][1]
 
     with pytest.raises(TransientJobError, match="qdrant unreachable"):
-        await service.execute("acme", job.job_id, payload_id, attempt=1)
+        await service.execute("acme", job.job_id, payload_id)
 
     queued_again = await store.get("acme", job.job_id)
     assert queued_again.status is JobStatus.QUEUED  # waiting for the next attempt
     assert "qdrant unreachable" in queued_again.error
     assert await dlq.depth() == 0  # not dead yet
 
-    done = await service.execute("acme", job.job_id, payload_id, attempt=2)
+    done = await service.execute("acme", job.job_id, payload_id)
     assert done.status is JobStatus.DONE and done.attempts == 2
     assert (await store.stats())["retried"] == 1
 
@@ -140,13 +140,35 @@ async def test_the_last_attempt_fails_the_job_and_dead_letters_it(make_service):
     job = await service.submit("acme", upload())
     payload_id = queue.enqueued[0][1]
 
-    for attempt in (1, 2):
+    for _ in (1, 2):
         with pytest.raises(TransientJobError):
-            await service.execute("acme", job.job_id, payload_id, attempt=attempt)
+            await service.execute("acme", job.job_id, payload_id)
 
-    failed = await service.execute("acme", job.job_id, payload_id, attempt=3)
+    failed = await service.execute("acme", job.job_id, payload_id)
     assert failed.status is JobStatus.FAILED
     assert failed.retryable is True and failed.attempts == 3
+    assert [j.job_id for j in await dlq.list()] == [job.job_id]
+
+
+async def test_a_job_that_keeps_killing_its_worker_is_dead_lettered(make_service):
+    """The poison pill: a job that never reports a failure because its worker dies.
+
+    Redelivery after a worker is lost doesn't raise, so nothing in the retry path sees it. The
+    attempt count is kept per job in Redis for exactly this case. Measured for real: one oversized
+    document OOM-killed four workers in turn, and they crash-looped on it for 70 minutes.
+    """
+    service, queue, store, dlq = make_service(FakeIngestion(), max_attempts=3)
+    job = await service.submit("acme", upload())
+    payload_id = queue.enqueued[0][1]
+
+    # Three deliveries that "died" before finishing: the record is never marked done.
+    for _ in range(3):
+        await store.start_attempt("acme", job.job_id)
+
+    failed = await service.execute("acme", job.job_id, payload_id)
+
+    assert failed.status is JobStatus.FAILED and failed.retryable is False
+    assert "delivered 4 times" in failed.error and "killing its worker" in failed.error
     assert [j.job_id for j in await dlq.list()] == [job.job_id]
 
 
@@ -156,7 +178,7 @@ async def test_an_expired_payload_fails_the_job_permanently(make_service):
     payload_id = queue.enqueued[0][1]
     await service._payloads.delete(payload_id)  # TTL elapsed before a worker picked it up
 
-    failed = await service.execute("acme", job.job_id, payload_id, attempt=1)
+    failed = await service.execute("acme", job.job_id, payload_id)
 
     assert failed.status is JobStatus.FAILED and failed.retryable is False
     assert "expired" in failed.error
@@ -165,13 +187,13 @@ async def test_an_expired_payload_fails_the_job_permanently(make_service):
 
 async def test_a_missing_job_record_is_not_an_error(make_service):
     service, _, _, _ = make_service(FakeIngestion())
-    assert await service.execute("acme", "gone", "payload", attempt=1) is None
+    assert await service.execute("acme", "gone", "payload") is None
 
 
 async def test_refresh_metrics_publishes_queue_and_job_gauges(make_service, redis_pair):
     service, queue, _store, _ = make_service(FakeIngestion())
     job = await service.submit("acme", upload())
-    await service.execute("acme", job.job_id, queue.enqueued[0][1], attempt=1)
+    await service.execute("acme", job.job_id, queue.enqueued[0][1])
     await redis_pair[0].rpush("ingest", "queued-task")
 
     await service.refresh_metrics("ingest")

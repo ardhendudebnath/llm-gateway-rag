@@ -150,9 +150,12 @@ Invoke-Native kubectl --context $Context apply -k "$Root/infra/k8s/overlays/kind
 # The tag is always :dev, so restart the API onto the image that was just loaded.
 Invoke-Native kubectl --context $Context -n $Namespace rollout restart deployment/api deployment/worker
 $workloads = "statefulset/redis", "statefulset/qdrant", "deployment/api", "deployment/worker",
-    "deployment/prometheus", "deployment/alertmanager", "deployment/grafana"
+    "deployment/prometheus", "deployment/alertmanager", "deployment/grafana",
+    "deployment/prometheus-adapter"
 foreach ($workload in $workloads) {
-    Invoke-Native kubectl --context $Context -n $Namespace rollout status $workload --timeout=300s
+    # 10 minutes: on a fresh cluster these pods wait on first-time image pulls, and giving up
+    # early fails a deployment that was only slow.
+    Invoke-Native kubectl --context $Context -n $Namespace rollout status $workload --timeout=600s
 }
 
 Step "NexusGate is up"

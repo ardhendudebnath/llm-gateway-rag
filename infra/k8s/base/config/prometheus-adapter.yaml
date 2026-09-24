@@ -1,0 +1,23 @@
+# What prometheus-adapter serves under external.metrics.k8s.io, for the HPAs in autoscaling.yaml.
+#
+# `resources: {namespaced: false}` is the important line: these describe a queue, not a property of
+# any one pod or namespace. Without it the adapter tries to turn the namespace in the HPA's request
+# into a Prometheus label and fails with "no generic resource label form specified for this metric".
+#
+# max() because every API replica publishes the same Redis-backed gauge. sum() would multiply the
+# queue by the number of replicas and scale the workers on a number that isn't real.
+externalRules:
+  - seriesQuery: 'nexusgate_rag_queue_depth{queue!=""}'
+    resources:
+      namespaced: false
+    name:
+      matches: "^nexusgate_rag_queue_depth$"
+      as: "nexusgate_ingest_queue_depth"
+    metricsQuery: 'max(nexusgate_rag_queue_depth{queue="ingest"})'
+  - seriesQuery: "nexusgate_rag_dead_letter_depth"
+    resources:
+      namespaced: false
+    name:
+      matches: "^nexusgate_rag_dead_letter_depth$"
+      as: "nexusgate_dead_letter_depth"
+    metricsQuery: "max(nexusgate_rag_dead_letter_depth)"

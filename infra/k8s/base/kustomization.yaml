@@ -22,7 +22,10 @@ resources:
   - prometheus.yaml
   - alertmanager.yaml
   - grafana.yaml
+  - prometheus-adapter.yaml
+  - autoscaling.yaml
 
+# Generated ConfigMaps get a content-hash suffix, so changing any of these rolls the pods.
 # Generated ConfigMaps get a content-hash suffix, so changing any of these rolls the pods.
 configMapGenerator:
   - name: nexusgate-config
@@ -42,6 +45,9 @@ configMapGenerator:
   - name: alertmanager-config
     files:
       - alertmanager.yml=config/alertmanager.yml
+  - name: prometheus-adapter-config
+    files:
+      - config.yaml=config/prometheus-adapter.yaml
   - name: grafana-datasources
     files:
       - prometheus.yml=config/grafana-datasources.yml

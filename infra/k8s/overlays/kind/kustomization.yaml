@@ -5,6 +5,7 @@ kind: Kustomization
 
 resources:
   - ../../base
+  - metrics-server.yaml
 
 images:
   - name: nexusgate-api
@@ -32,3 +33,13 @@ patches:
     patch: |-
       - { op: replace, path: /spec/type, value: NodePort }
       - { op: add, path: /spec/ports/0/nodePort, value: 30300 }
+  # kind's kubelets serve self-signed certificates, which metrics-server won't scrape by default.
+  - target: { kind: Deployment, name: metrics-server }
+    patch: |-
+      - { op: add, path: /spec/template/spec/containers/0/args/-, value: --kubelet-insecure-tls }
+  # One node, and one worker already saturates its CPU: the autoscaling test drained the same
+  # backlog in 312 s with one worker and 324 s with four, because the extra pods only competed
+  # for the same cores. The base keeps 4 for a real cluster with somewhere to put them.
+  - target: { kind: HorizontalPodAutoscaler, name: worker }
+    patch: |-
+      - { op: replace, path: /spec/maxReplicas, value: 2 }

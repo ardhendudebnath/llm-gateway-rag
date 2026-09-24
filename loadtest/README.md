@@ -82,11 +82,57 @@ fails the deployment on every replica, exactly where a real provider error would
   1,000 requests went from $0.027 to $0.134 during the fault. That is worth knowing before
   choosing a fallback order.
 
+## Autoscaling
+
+Separate question, separate test: when a backlog builds, does the worker Deployment grow, and is
+the cluster better off for it? [`autoscale.py`](autoscale.py) queues a burst of uploads and then
+samples queue depth, what the HPA reads, and the replica count every 5 s until the backlog clears.
+
+```bash
+python loadtest/autoscale.py --admin-token <token>                        # burst, then watch
+python loadtest/autoscale.py --admin-token <token> --documents 150 --repeat 80 --concurrency 32
+```
+
+It runs on the host, not in the cluster, because it reads Kubernetes objects rather than just
+HTTP. `--repeat` pads each document: the handbook files are ~2 KB and a warm worker ingests one in
+about 100 ms, so unpadded uploads never form a queue to scale on.
+
+**Three things the test settled**, each of which changed the manifests:
+
+1. **CPU is the wrong signal for the workers.** With a CPU metric on the worker HPA, replicas grew
+   2 → 4 while the queue was **empty**: one ingest job drives a worker to 3355% of its CPU request,
+   because embedding is what it does. A HPA takes whichever metric asks for the most replicas, so
+   CPU always won and queue depth never got a say. The worker now scales on queue depth alone.
+2. **A start-up spike is not load.** The API HPA scaled 2 → 4 on an idle cluster: a fresh pod loads
+   the embedding and reranking models and pegs its CPU for about a minute, and every pod it adds
+   does the same. Scale-up now ignores anything shorter than two minutes.
+3. **Extra workers only help if a backlog outruns one worker.** The first A/B, 300 documents of
+   24 KB, showed no improvement at all — uploads arrived at about the rate a single worker cleared
+   them, so the queue sat flat at 58 and the extra pods had nothing to do. Making each job heavy
+   enough to saturate a worker is what produced the numbers in [`RESULTS.md`](RESULTS.md).
+
+**And then it found two bugs**, by making the jobs heavy enough (150 documents of 160 KB):
+
+4. **A big document could kill the worker that ingested it.** Every chunk of a document went into
+   the embedding model in one call, so peak memory scaled with the file: ~660 chunks exceeded the
+   pod's 2 GiB limit and the kernel killed it (`OOMKilled`, exit 137, 15 s after start). The file
+   was well inside the 10 MB upload limit, so nothing rejected it. Fixed by embedding in batches
+   of `NEXUSGATE_EMBED_BATCH_SIZE` (32), which bounds memory by the batch rather than the file.
+5. **That job then became a poison pill.** `acks_late` redelivers a job whose worker died — which
+   is right — but the attempt number was passed in by the caller, and Celery resets it on
+   redelivery, so the job was attempt 1 every time. It killed each worker in turn and all four
+   crash-looped on it for **70 minutes**. Attempts are now counted per job in Redis, where they
+   survive the worker, and a job delivered more times than `job_max_attempts` is dead-lettered
+   with "it may be killing its worker" instead of taking the pipeline down.
+
 ## Limitations
 
 - **One laptop.** The load generator, the gateway, Redis, Qdrant and the monitoring stack share
   12 vCPUs, so absolute throughput is a floor, not a capacity plan. The comparison between runs is
   the meaningful part.
+- **Autoscaling was measured on a single node**, so "more replicas" means more processes on the
+  same 12 vCPUs, not more hardware. It shows the control loop works and what it costs; on a real
+  cluster the gain would be larger.
 - **A mock provider with fixed latency.** This measures the gateway (auth, rate limiting, cache,
   routing, retrieval), not real LLM latency, which would dominate end-to-end time.
 - **45 s per level.** Long enough for stable percentiles at these rates, too short to show slow

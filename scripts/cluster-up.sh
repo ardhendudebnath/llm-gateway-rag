@@ -109,8 +109,10 @@ kc apply -k "$ROOT/infra/k8s/overlays/kind"
 # The tag is always :dev, so restart the API onto the image that was just loaded.
 kc -n "$NS" rollout restart deployment/api deployment/worker
 for workload in statefulset/redis statefulset/qdrant deployment/api deployment/worker \
-  deployment/prometheus deployment/alertmanager deployment/grafana; do
-  kc -n "$NS" rollout status "$workload" --timeout=300s
+  deployment/prometheus deployment/alertmanager deployment/grafana deployment/prometheus-adapter; do
+  # 10 minutes: on a fresh cluster these pods wait on first-time image pulls, and giving up early
+  # fails a deployment that was only slow.
+  kc -n "$NS" rollout status "$workload" --timeout=600s
 done
 
 step "NexusGate is up"

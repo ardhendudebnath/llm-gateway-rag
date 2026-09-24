@@ -53,7 +53,7 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 48 labelled questions | **recall@5 1.000, MRR 0.990** |
-| Tests | **265** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
+| Tests | **270** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
 
@@ -293,6 +293,8 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Retry policy sits in the service, not the task**, so all of it is unit-tested without a broker: permanent failure, retry-then-succeed, and exhausting the last attempt.
 - **Redelivery is safe.** `acks_late` plus `reject_on_worker_lost` mean a job whose worker is killed is redelivered rather than lost, and ingestion is idempotent, so re-running it overwrites rather than duplicates.
 - **The same code path in tests.** An in-process queue runs jobs without a broker, so tests and `uvicorn` on a laptop behave like production: still 202, still polled.
+- **A big document can't take a worker down.** Embedding runs in batches of 32 chunks, so peak memory follows the batch, not the file. It didn't, once: a 160 KB upload put ~660 chunks into one call and the worker was OOM-killed.
+- **A job that keeps killing its worker gets dead-lettered.** Attempts are counted per job in Redis, not passed in by the caller, because a redelivery after a worker dies resets the caller's count. Without that, one bad document crash-looped four workers for 70 minutes ([how it was found](loadtest/README.md#autoscaling)).
 - **Job counters live in Redis**, because the worker has no `/metrics` endpoint. The API publishes queue depth, dead-letter depth and per-outcome totals when Prometheus scrapes it, whichever process ran the job.
 
 **Kubernetes, built with Podman.** The image is an OCI image built from a `Containerfile`, and the stack is plain kustomize: a cluster-agnostic [base](infra/k8s/base) plus a [kind overlay](infra/k8s/overlays/kind) that adds NodePorts and the locally built image.
@@ -300,6 +302,9 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Per-pod scraping:** Prometheus discovers every API pod through a headless Service's DNS records. Each replica keeps its own counters, and scraping the load-balanced Service would sample a random pod each time.
 - **Hardened pods:** they run as non-root with a read-only root filesystem and all capabilities dropped. An init container waits for Redis and Qdrant instead of letting the API crash-loop. Qdrant runs its unprivileged image and requires an API key.
 - **Models in the image:** the embedding and reranking weights are downloaded at build time, and pods run with `HF_HUB_OFFLINE=1`. Startup is fast and needs no internet access.
+- **Autoscaling on the signal that matters per workload** ([autoscaling.yaml](infra/k8s/base/autoscaling.yaml)). The API scales on CPU, because the load test showed CPU is its ceiling once inference is bounded. The workers scale on **ingestion queue depth**, served to the HPA by a [prometheus-adapter](infra/k8s/base/prometheus-adapter.yaml) reading the gauge the API publishes from Redis — and on nothing else, because a CPU target scaled them out while the queue was *empty*: one ingest job pegs a worker's CPU, which says it is busy, never that work is piling up.
+  - **Measured, including the part that doesn't flatter it.** The loop works — a backlog of 51 jobs per worker against a target of 5 added pods and drained. But on this one-node cluster the same backlog cleared in **312 s with one worker and 324 s with four**: a single worker already uses ~8 cores, so extra pods competed for busy CPUs. The kind overlay therefore caps workers at 2, while the base keeps 4 for a cluster with room. [Numbers](loadtest/RESULTS.md#autoscaling).
+  - **A start-up spike is not load.** The API HPA scaled 2 → 4 on an idle cluster, because a fresh pod loads both models and pegs its CPU for a minute — and each pod it added did the same. Scale-up now ignores anything shorter than two minutes.
 - **Secrets:** they never enter git. The cluster-up script creates the Secret from `.env`. The pods run with `NEXUSGATE_ENV=prod`, which refuses default secrets.
 
 ### A public demo that's safe to expose
@@ -339,7 +344,7 @@ Containerfile       API and worker image for Kubernetes, built with Podman
 Containerfile.demo  the one-container public demo
 docs/demo.gif       the README walkthrough, generated by scripts/record_gif.py
 eval/             retrieval eval: fictional corpus, 48 labelled questions, harness, results
-loadtest/         Locust traffic, in-cluster runner, chaos test, results and report
+loadtest/         Locust traffic, in-cluster runner, chaos test, autoscaling test, results
 ```
 
 ## How it was built
@@ -356,6 +361,7 @@ Eight weekly milestones, following the project spec:
 | 7 | Locust load test, breaking point, chaos test | ✅ breaking point found and fixed; 0 failures when a provider dies ([results](loadtest/README.md)) |
 | 8 | README, demo GIF, one-container demo, live deployment | ✅ except the live URL: `scripts/deploy_space.py` is ready and waits on a Hugging Face login |
 | — | Beyond the roadmap: the agent layer the spec lists as a stretch feature (§4.7) | ✅ [`app/agents`](app/agents): an explicit state graph, published as a diagram |
+| — | Beyond the roadmap: autoscaling tied to queue depth (§10) | ✅ [HPAs](infra/k8s/base/autoscaling.yaml) on CPU (API) and ingestion queue depth (workers) |
 
 ## What I'd do with more time
 
@@ -364,7 +370,6 @@ Eight weekly milestones, following the project spec:
 - Hybrid retrieval (BM25 + dense), and an LLM-judged eval of answer faithfulness.
 - An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. It needs a real provider, so the offline test suite can't answer it.
 - A model-comparison harness that feeds back into route ordering.
-- A HorizontalPodAutoscaler driven by CPU and inference queue depth: the load test showed CPU is now the limit.
 - GPU inference or a smaller reranker, to lower the RAG latency floor.
 - A soak test.
 - A Helm chart for real clusters.

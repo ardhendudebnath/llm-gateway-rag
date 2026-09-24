@@ -87,6 +87,21 @@ class JobStore:
         raws = await self._redis.mget([_job_key(tenant_id, j) for j in job_ids])
         return [IngestJob.model_validate_json(r) for r in raws if r]
 
+    async def start_attempt(self, tenant_id: str, job_id: str) -> int:
+        """Count this delivery and return the attempt number, durably.
+
+        In Redis rather than in the caller, because the number has to survive the worker. Celery
+        redelivers a job whose worker died (``acks_late``) without incrementing its retry count,
+        so a job that *kills* its worker — an out-of-memory on a huge document, say — would
+        otherwise be attempt 1 for ever. Counting deliveries lets such a job be dead-lettered.
+        """
+        key = f"{_job_key(tenant_id, job_id)}:attempts"
+        pipe = self._redis.pipeline()
+        pipe.incr(key)
+        pipe.expire(key, self._retention)
+        attempt, _ = await pipe.execute()
+        return int(attempt)
+
     async def count(self, outcome: str) -> None:
         await self._redis.hincrby(STATS_KEY, outcome, 1)
 

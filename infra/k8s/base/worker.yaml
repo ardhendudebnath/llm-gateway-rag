@@ -82,7 +82,11 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              cpu: 250m
+              # A single ingest job was measured at ~8 cores (3355% of the old 250m request):
+              # embedding is ONNX across every thread it is given. Requesting 250m let the
+              # scheduler pack workers onto a node that one of them already saturates, so the
+              # autoscaler could add pods that only contended for the same CPUs.
+              cpu: 1000m
               memory: 512Mi
             limits:
               # Each prefork child loads the embedding and reranking models.

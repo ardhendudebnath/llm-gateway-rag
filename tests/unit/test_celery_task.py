@@ -15,10 +15,8 @@ class FakeJobs:
         self.calls: list[dict] = []
         self._outcome = outcome
 
-    async def execute(self, tenant_id, job_id, payload_id, *, attempt):
-        self.calls.append(
-            {"tenant_id": tenant_id, "job_id": job_id, "payload_id": payload_id, "attempt": attempt}
-        )
+    async def execute(self, tenant_id, job_id, payload_id):
+        self.calls.append({"tenant_id": tenant_id, "job_id": job_id, "payload_id": payload_id})
         if isinstance(self._outcome, BaseException):
             raise self._outcome
         return IngestJob(
@@ -40,21 +38,23 @@ def jobs(monkeypatch):
     return use
 
 
-def test_the_task_runs_the_first_attempt_and_reports_the_status(jobs):
+def test_the_task_runs_the_job_and_reports_the_status(jobs):
     fake = jobs()
     result = mod.ingest_document(job_id="j1", tenant_id="acme", payload_id="p1")
     assert result == {"job_id": "j1", "status": "done"}
-    assert fake.calls == [{"tenant_id": "acme", "job_id": "j1", "payload_id": "p1", "attempt": 1}]
+    # No attempt number is passed: the service counts deliveries itself, so that a redelivery
+    # after a worker was killed is counted too.
+    assert fake.calls == [{"tenant_id": "acme", "job_id": "j1", "payload_id": "p1"}]
 
 
-def test_a_transient_failure_retries_with_a_rising_attempt_number(jobs):
+def test_a_transient_failure_is_retried_a_bounded_number_of_times(jobs):
     fake = jobs(TransientJobError("qdrant unreachable"))
     # Run through .apply(): called directly, Celery re-raises instead of scheduling a retry.
     # Eager mode runs each retry inline, so this also proves retries are bounded.
     result = mod.ingest_document.apply(
         kwargs={"job_id": "j1", "tenant_id": "acme", "payload_id": "p1"}, throw=False
     )
-    assert [c["attempt"] for c in fake.calls] == [1, 2, 3]
+    assert len(fake.calls) == 3
     assert result.state == "FAILURE"  # Celery's ceiling; the service normally stops first
 
 

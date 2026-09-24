@@ -82,13 +82,18 @@ class FastEmbedEmbedder:
         cache_dir: str | None = None,
         threads: int | None = None,
         gate: InferenceGate | None = None,
+        batch_size: int = 32,
+        model=None,
     ):
-        from fastembed import TextEmbedding
+        if model is None:
+            from fastembed import TextEmbedding
 
-        self._model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, threads=threads)
+            model = TextEmbedding(model_name=model_name, cache_dir=cache_dir, threads=threads)
+        self._model = model
         self.dim = len(next(iter(self._model.embed(["dimension probe"]))))
         # Bounded concurrency: see app/core/concurrency.py for the OOM this prevents.
         self._gate = gate or InferenceGate("embedder", max_concurrency=2, max_queue=64)
+        self._batch_size = batch_size
 
     async def embed(self, text: str) -> np.ndarray:
         vec = await self._gate.run(lambda: next(iter(self._model.embed([text]))))
@@ -99,10 +104,23 @@ class FastEmbedEmbedder:
         return _normalise(np.asarray(vec, dtype=np.float32))
 
     async def embed_documents(self, texts: Sequence[str]) -> np.ndarray:
+        """Embed in fixed-size batches, so peak memory follows the batch, not the document.
+
+        A worker was OOM-killed ingesting a 160 KB file: one call carried all ~660 of its chunks
+        into ONNX, and the activations for a batch that size exceeded the pod's 2 GiB limit. The
+        job was then redelivered to the next worker, which died the same way. Batching bounds the
+        memory a single document can demand, whatever its size.
+        """
         if not texts:
             return np.zeros((0, self.dim), dtype=np.float32)
-        rows = await self._gate.run(lambda: list(self._model.passage_embed(list(texts))))
-        return np.stack([_normalise(np.asarray(r, dtype=np.float32)) for r in rows])
+        rows: list[np.ndarray] = []
+        for start in range(0, len(texts), self._batch_size):
+            window = list(texts[start : start + self._batch_size])
+            batch = await self._gate.run(
+                lambda w=window: list(self._model.passage_embed(w, batch_size=len(w)))
+            )
+            rows.extend(_normalise(np.asarray(r, dtype=np.float32)) for r in batch)
+        return np.stack(rows)
 
 
 def _normalise(vec: np.ndarray) -> np.ndarray:

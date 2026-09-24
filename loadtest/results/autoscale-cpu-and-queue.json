@@ -1,0 +1,114 @@
+{
+  "label": "autoscale",
+  "finished_at": "2026-09-23T13:16:12+00:00",
+  "documents": 60,
+  "repeat": 12,
+  "accepted": 60,
+  "start_workers": 1,
+  "peak_queue_depth": 58.0,
+  "peak_workers": 3,
+  "seconds_to_scale_out": 64.3,
+  "queue_depth_at_scale_out": 16.0,
+  "seconds_to_drain": 84.2,
+  "samples": [
+    {
+      "t": 1.0,
+      "queue_depth": 0.0,
+      "hpa_per_pod": 0.0,
+      "hpa_cpu_percent": 0,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": "before"
+    },
+    {
+      "t": 7.2,
+      "queue_depth": 58.0,
+      "hpa_per_pod": 0.0,
+      "hpa_cpu_percent": 0,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": ""
+    },
+    {
+      "t": 16.5,
+      "queue_depth": 49.0,
+      "hpa_per_pod": 53.0,
+      "hpa_cpu_percent": 0,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": ""
+    },
+    {
+      "t": 26.1,
+      "queue_depth": 42.0,
+      "hpa_per_pod": 53.0,
+      "hpa_cpu_percent": 0,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": ""
+    },
+    {
+      "t": 35.6,
+      "queue_depth": 36.0,
+      "hpa_per_pod": 42.0,
+      "hpa_cpu_percent": 2100,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": ""
+    },
+    {
+      "t": 45.2,
+      "queue_depth": 31.0,
+      "hpa_per_pod": 33.0,
+      "hpa_cpu_percent": 3355,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": ""
+    },
+    {
+      "t": 54.6,
+      "queue_depth": 24.0,
+      "hpa_per_pod": 33.0,
+      "hpa_cpu_percent": 3355,
+      "workers_desired": 1,
+      "workers_ready": 1,
+      "note": ""
+    },
+    {
+      "t": 64.3,
+      "queue_depth": 16.0,
+      "hpa_per_pod": 22.0,
+      "hpa_cpu_percent": 3203,
+      "workers_desired": 3,
+      "workers_ready": 3,
+      "note": ""
+    },
+    {
+      "t": 74.3,
+      "queue_depth": 7.0,
+      "hpa_per_pod": 22.0,
+      "hpa_cpu_percent": 3203,
+      "workers_desired": 3,
+      "workers_ready": 3,
+      "note": ""
+    },
+    {
+      "t": 84.2,
+      "queue_depth": 0.0,
+      "hpa_per_pod": 3.0,
+      "hpa_cpu_percent": 3203,
+      "workers_desired": 3,
+      "workers_ready": 3,
+      "note": ""
+    },
+    {
+      "t": 87.9,
+      "queue_depth": 0.0,
+      "hpa_per_pod": 3.0,
+      "hpa_cpu_percent": 3203,
+      "workers_desired": 3,
+      "workers_ready": 3,
+      "note": "queue drained"
+    }
+  ]
+}
