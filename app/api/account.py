@@ -1,7 +1,7 @@
 """Caller-scoped endpoints: token exchange, usage, cache purge for the caller's tenant."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import authenticate_api_key, get_services, rate_limited
 from app.core.container import Services
@@ -17,11 +17,26 @@ class TokenResponse(BaseModel):
     expires_in: int
 
 
+class CostPer1k(BaseModel):
+    """Spend per 1,000 requests of each kind, and blended across all of them.
+
+    The blended figure alone hides which lever moved it: a better cache hit rate and a shift onto
+    self-hosted capacity both lower it, and they cost very different things to arrange.
+    """
+
+    cache_hit: float = Field(default=0.0, description="Always 0: a hit makes no provider call.")
+    provider_call: float = Field(description="Paid providers only.")
+    self_hosted: float = Field(description="Usually 0: the GPU is paid for by the hour, not here.")
+    blended: float = Field(description="Total spend over total requests, x1000.")
+    requests: dict[str, int] = Field(description="How many requests of each kind it averages over.")
+
+
 class UsageResponse(BaseModel):
     key_id: str
     tenant_id: str
     days: list[DailyUsage]
     totals: DailyUsage
+    cost_per_1k_usd: CostPer1k
 
 
 @router.post("/auth/token", response_model=TokenResponse, summary="Exchange an API key for a JWT")
@@ -50,9 +65,33 @@ async def usage(
         completion_tokens=sum(r.completion_tokens for r in rows),
         cost_usd=round(sum(r.cost_usd for r in rows), 8),
         cost_saved_usd=round(sum(r.cost_saved_usd for r in rows), 8),
+        self_hosted_requests=sum(r.self_hosted_requests for r in rows),
+        self_hosted_cost_usd=round(sum(r.self_hosted_cost_usd for r in rows), 8),
     )
     return UsageResponse(
-        key_id=principal.key_id, tenant_id=principal.tenant_id, days=rows, totals=totals
+        key_id=principal.key_id,
+        tenant_id=principal.tenant_id,
+        days=rows,
+        totals=totals,
+        cost_per_1k_usd=_cost_per_1k(totals),
+    )
+
+
+def _per_1k(cost: float, requests: int) -> float:
+    return round(cost / requests * 1000, 6) if requests else 0.0
+
+
+def _cost_per_1k(totals: DailyUsage) -> CostPer1k:
+    return CostPer1k(
+        cache_hit=0.0,
+        provider_call=_per_1k(totals.provider_cost_usd, totals.provider_requests),
+        self_hosted=_per_1k(totals.self_hosted_cost_usd, totals.self_hosted_requests),
+        blended=_per_1k(totals.cost_usd, totals.requests),
+        requests={
+            "cache_hit": totals.cache_hits,
+            "provider_call": totals.provider_requests,
+            "self_hosted": totals.self_hosted_requests,
+        },
     )
 
 

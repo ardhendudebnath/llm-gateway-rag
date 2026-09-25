@@ -109,7 +109,7 @@ about 100 ms, so unpadded uploads never form a queue to scale on.
 3. **Extra workers only help if a backlog outruns one worker.** The first A/B, 300 documents of
    24 KB, showed no improvement at all — uploads arrived at about the rate a single worker cleared
    them, so the queue sat flat at 58 and the extra pods had nothing to do. Making each job heavy
-   enough to saturate a worker is what produced the numbers in [`RESULTS.md`](RESULTS.md).
+   enough to saturate a worker is what produced the numbers in [`AUTOSCALING.md`](AUTOSCALING.md).
 
 **And then it found two bugs**, by making the jobs heavy enough (150 documents of 160 KB):
 

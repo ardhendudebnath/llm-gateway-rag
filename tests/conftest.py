@@ -69,7 +69,17 @@ def make_routing() -> RoutingConfig:
         model="fake/secondary",
         pricing={"input_per_mtok": 0.5, "output_per_mtok": 1.5},
     )
-    return RoutingConfig(routes={"default": [primary, secondary], "single": [primary]})
+    # Priced at zero, and flagged: metering reports self-hosted capacity apart from paid calls.
+    local = Deployment(
+        name="local",
+        provider="fake",
+        model="fake/local",
+        self_hosted=True,
+        pricing={"input_per_mtok": 0.0, "output_per_mtok": 0.0},
+    )
+    return RoutingConfig(
+        routes={"default": [primary, secondary], "single": [primary], "selfhosted": [local]}
+    )
 
 
 @pytest.fixture

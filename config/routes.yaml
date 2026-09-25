@@ -23,6 +23,7 @@ routes:
       model: hosted_vllm/Qwen/Qwen2.5-7B-Instruct    # self-hosted, OpenAI-compatible
       api_base: http://vllm:8000/v1
       timeout_seconds: 60
+      self_hosted: true                              # metered apart from paid providers
       pricing: { input_per_mtok: 0.0, output_per_mtok: 0.0 }
 
   # Offline routes: no API keys, no spend. Used by the demo, load tests and chaos tests.

@@ -220,7 +220,7 @@ python scripts/deploy_space.py <hf-user>/nexusgate      # add --private to try i
 | `POST /v1/chat/completions` | key / JWT | OpenAI-shaped chat; response adds a `nexusgate` block (deployment, attempts, cost, cache hit) |
 | `GET /v1/models` | key / JWT | Route aliases usable as `model` |
 | `POST /v1/auth/token` | API key | Exchange a key for a short-lived JWT |
-| `GET /v1/usage?days=7` | key / JWT | Daily requests, tokens, $ spent, $ saved by cache |
+| `GET /v1/usage?days=7` | key / JWT | Daily requests, tokens, $ spent, $ saved by cache, and cost per 1,000 split by cache hit / paid provider / self-hosted |
 | `DELETE /v1/cache` | key / JWT | Purge the caller's tenant cache |
 | `POST /v1/rag/documents` | key / JWT | Queue a PDF / Markdown / text file (multipart); **202** with a job; 413 over 10 MB, 415 unsupported or binary; 403 in the public demo |
 | `GET /v1/rag/jobs[/{id}]` | key / JWT | Ingestion jobs: queued / processing / done / failed, with attempts and the failure reason |
@@ -255,6 +255,8 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 **Two vector-index backends behind one storage layout.** `redisearch` (an HNSW index in redis-stack) is what the Kubernetes stack runs. `bruteforce` (a numpy dot product) needs no extra infrastructure; the tests and the one-container demo use it.
 
 **Rate limiting is one Lua script.** The token-bucket refill-and-take runs atomically inside Redis, so replicas sharing a Redis never overspend a bucket. A test fires 50 concurrent requests at a 10-token bucket and asserts that exactly 10 get through.
+
+**Cost is metered per kind, not just blended.** `GET /v1/usage` reports cost per 1,000 requests for cache hits, paid provider calls and self-hosted deployments separately, because the blended number hides which lever moved it: a better hit rate and a shift onto your own GPU both push it down and cost completely different things to arrange. Self-hosted is a flag on the deployment ([`routes.yaml`](config/routes.yaml)), not an inference from a zero price, which a free API tier would also have.
 
 **Only a SHA-256 of each API key is stored.** A Redis dump contains no usable credentials. JWTs are checked against the key record on every request, so revoking a key immediately kills its outstanding tokens. In `prod` the app refuses to start with the default secrets.
 
@@ -303,7 +305,7 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Hardened pods:** they run as non-root with a read-only root filesystem and all capabilities dropped. An init container waits for Redis and Qdrant instead of letting the API crash-loop. Qdrant runs its unprivileged image and requires an API key.
 - **Models in the image:** the embedding and reranking weights are downloaded at build time, and pods run with `HF_HUB_OFFLINE=1`. Startup is fast and needs no internet access.
 - **Autoscaling on the signal that matters per workload** ([autoscaling.yaml](infra/k8s/base/autoscaling.yaml)). The API scales on CPU, because the load test showed CPU is its ceiling once inference is bounded. The workers scale on **ingestion queue depth**, served to the HPA by a [prometheus-adapter](infra/k8s/base/prometheus-adapter.yaml) reading the gauge the API publishes from Redis — and on nothing else, because a CPU target scaled them out while the queue was *empty*: one ingest job pegs a worker's CPU, which says it is busy, never that work is piling up.
-  - **Measured, including the part that doesn't flatter it.** The loop works — a backlog of 51 jobs per worker against a target of 5 added pods and drained. But on this one-node cluster the same backlog cleared in **312 s with one worker and 324 s with four**: a single worker already uses ~8 cores, so extra pods competed for busy CPUs. The kind overlay therefore caps workers at 2, while the base keeps 4 for a cluster with room. [Numbers](loadtest/RESULTS.md#autoscaling).
+  - **Measured, including the part that doesn't flatter it.** The loop works — a backlog of 51 jobs per worker against a target of 5 added pods and drained. But on this one-node cluster the same backlog cleared in **312 s with one worker and 324 s with four**: a single worker already uses ~8 cores, so extra pods competed for busy CPUs. The kind overlay therefore caps workers at 2, while the base keeps 4 for a cluster with room. [Numbers](loadtest/AUTOSCALING.md).
   - **A start-up spike is not load.** The API HPA scaled 2 → 4 on an idle cluster, because a fresh pod loads both models and pegs its CPU for a minute — and each pod it added did the same. Scale-up now ignores anything shorter than two minutes.
 - **Secrets:** they never enter git. The cluster-up script creates the Secret from `.env`. The pods run with `NEXUSGATE_ENV=prod`, which refuses default secrets.
 

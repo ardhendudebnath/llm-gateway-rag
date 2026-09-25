@@ -19,6 +19,11 @@ class Deployment(BaseModel):
     timeout_seconds: float | None = None
     max_retries: int = Field(default=0, ge=0, le=5)
     pricing: Pricing | None = None
+    self_hosted: bool = Field(
+        default=False,
+        description="You pay for the hardware, not per token. Metered separately, because a "
+        "zero price is otherwise indistinguishable from a free API.",
+    )
     # Free-form adapter options (the mock provider reads latency/failure settings from here).
     options: dict = Field(default_factory=dict)
 

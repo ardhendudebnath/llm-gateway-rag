@@ -17,6 +17,20 @@ class DailyUsage(BaseModel):
     completion_tokens: int = 0
     cost_usd: float = 0.0
     cost_saved_usd: float = 0.0
+    # Requests answered by a self-hosted deployment, and what they were priced at (usually 0:
+    # you pay for the GPU, not per token). Counted apart so that a blended cost per request
+    # can't quietly credit self-hosting to the cache, or the other way round.
+    self_hosted_requests: int = 0
+    self_hosted_cost_usd: float = 0.0
+
+    @property
+    def provider_requests(self) -> int:
+        """Requests that went to a paid provider: not a cache hit, not self-hosted."""
+        return max(0, self.requests - self.cache_hits - self.self_hosted_requests)
+
+    @property
+    def provider_cost_usd(self) -> float:
+        return round(max(0.0, self.cost_usd - self.self_hosted_cost_usd), 8)
 
 
 def _key(key_id: str, day: date) -> str:
@@ -37,6 +51,7 @@ class UsageMeter:
         cost_usd: float,
         cached: bool,
         cost_saved_usd: float = 0.0,
+        self_hosted: bool = False,
         now: datetime | None = None,
     ) -> None:
         key = _key(key_id, (now or datetime.now(UTC)).date())
@@ -49,6 +64,9 @@ class UsageMeter:
             pipe.hincrby(key, "prompt_tokens", prompt_tokens)
             pipe.hincrby(key, "completion_tokens", completion_tokens)
             pipe.hincrbyfloat(key, "cost_usd", cost_usd)
+            if self_hosted:
+                pipe.hincrby(key, "self_hosted_requests", 1)
+                pipe.hincrbyfloat(key, "self_hosted_cost_usd", cost_usd)
         pipe.expire(key, int(self._retention.total_seconds()))
         await pipe.execute()
 

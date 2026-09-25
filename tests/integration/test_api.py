@@ -176,7 +176,7 @@ async def test_validation_error_envelope(client, api_key):
 
 async def test_models_lists_route_aliases(client, api_key):
     resp = await client.get("/v1/models", headers=bearer(api_key))
-    assert [m["id"] for m in resp.json()["data"]] == ["default", "single"]
+    assert [m["id"] for m in resp.json()["data"]] == ["default", "single", "selfhosted"]
 
 
 # ---------------------------------------------------------------- cache + metering
@@ -238,6 +238,28 @@ async def test_usage_reports_spend_and_savings(client, api_key):
     assert totals["prompt_tokens"] == 100
     assert totals["cost_usd"] == pytest.approx(0.00105)
     assert totals["cost_saved_usd"] == pytest.approx(0.0021)
+
+
+async def test_usage_splits_cost_per_1k_by_cache_hit_provider_and_self_hosted(client, api_key):
+    # A blended cost per request hides which lever moved it: caching and self-hosting both push
+    # it down, and they cost completely different things to arrange.
+    await client.post("/v1/chat/completions", json=chat_body(), headers=bearer(api_key))
+    await client.post("/v1/chat/completions", json=chat_body(), headers=bearer(api_key))  # hit
+    await client.post(
+        "/v1/chat/completions",
+        json=chat_body("Something else entirely", model="selfhosted"),
+        headers=bearer(api_key),
+    )
+
+    body = (await client.get("/v1/usage", headers=bearer(api_key))).json()
+    per_1k, totals = body["cost_per_1k_usd"], body["totals"]
+
+    assert per_1k["requests"] == {"cache_hit": 1, "provider_call": 1, "self_hosted": 1}
+    assert totals["self_hosted_requests"] == 1
+    assert per_1k["cache_hit"] == 0.0  # a hit makes no provider call
+    assert per_1k["self_hosted"] == 0.0  # the GPU is paid for by the hour, not per token
+    assert per_1k["provider_call"] == pytest.approx(1.05)  # $0.00105 for the one paid call
+    assert per_1k["blended"] == pytest.approx(0.35)  # ... spread over all three requests
 
 
 async def test_cache_failure_degrades_to_uncached(client, api_key, services, provider):

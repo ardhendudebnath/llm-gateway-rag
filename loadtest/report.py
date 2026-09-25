@@ -89,6 +89,23 @@ def kinds_table(level: dict) -> list[str]:
     return rows
 
 
+def by_kind_lines(per_1k: dict | None) -> list[str]:
+    """Cost per 1,000 split by what answered the request. Absent from older runs' JSON."""
+    if not per_1k:
+        return []
+    counts = per_1k.get("requests", {})
+    kinds = [
+        ("cache hit", "cache_hit", "no provider call"),
+        ("provider call", "provider_call", "paid"),
+        ("self-hosted", "self_hosted", "you pay for the hardware, not per token"),
+    ]
+    rows = [
+        f"  - {label}: ${per_1k[key]:.6f} per 1,000 ({counts.get(key, 0):,} requests, {note})"
+        for label, key, note in kinds
+    ]
+    return ["- Cost per 1,000 by kind:", *rows]
+
+
 def chaos_section(chaos: dict) -> list[str]:
     t = chaos["timeline_s"]
     lines = [
@@ -191,8 +208,12 @@ def main() -> int:
         f"- Cache hit rate: {usage['cache_hit_rate']:.1%} of {usage['requests']} requests",
         f"- Cost per 1,000 requests: ${usage['cost_per_1k_requests_usd']}; saved by the cache per "
         f"1,000: ${usage['saved_per_1k_requests_usd']}",
+        *by_kind_lines(usage.get("cost_per_1k_by_kind")),
         "- Costs use the mock route's pricing (priced like a small hosted model) and its "
         "word-count token estimates, so they compare configurations; they are not a bill.",
+        "",
+        "Autoscaling is measured separately, by `loadtest/autoscale.py`: see "
+        "[AUTOSCALING.md](AUTOSCALING.md).",
     ]
     if chaos:
         lines += ["", *chaos_section(chaos)]

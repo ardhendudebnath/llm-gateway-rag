@@ -125,6 +125,7 @@ class ChatService:
             completion_tokens=resp.usage.completion_tokens,
             cost_usd=result.cost_usd,
             cached=False,
+            self_hosted=result.deployment.self_hosted,
         )
         return _build_response(
             content=resp.content,

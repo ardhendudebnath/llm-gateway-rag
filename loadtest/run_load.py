@@ -130,7 +130,8 @@ def run_level(base: str, key: str, users: int, duration: int, prefix: Path) -> d
 
 def usage(base: str, key: str) -> dict:
     api = Api(base, {"Authorization": f"Bearer {key}"})
-    totals = api.call("GET", "/v1/usage", params={"days": 1}).json()["totals"]
+    body = api.call("GET", "/v1/usage", params={"days": 1}).json()
+    totals = body["totals"]
     requests_ = totals["requests"] or 1
     return {
         "requests": totals["requests"],
@@ -140,6 +141,9 @@ def usage(base: str, key: str) -> dict:
         "cost_saved_usd": totals["cost_saved_usd"],
         "cost_per_1k_requests_usd": round(1000 * totals["cost_usd"] / requests_, 6),
         "saved_per_1k_requests_usd": round(1000 * totals["cost_saved_usd"] / requests_, 6),
+        # Per request kind, straight from the gateway's own metering: the blended figure above
+        # hides whether the cache or cheaper capacity moved it.
+        "cost_per_1k_by_kind": body.get("cost_per_1k_usd"),
     }
 
 
