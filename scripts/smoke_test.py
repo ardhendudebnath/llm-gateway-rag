@@ -96,10 +96,48 @@ def check_gateway(api: httpx.Client, admin_token: str, job_timeout: float = 60) 
         check("nexusgate_http_requests_total" in metrics, "/metrics lacks nexusgate_ metrics")
         ok("/metrics exports nexusgate_* series")
 
+        check_canary(api, admin, key)
         check_rag(api, auth, job_timeout)
     finally:
         api.delete("/v1/cache", headers=auth)
         api.delete(f"/v1/admin/keys/{key_id}", headers=admin)
+
+
+# A candidate route table: one deployment, a mock priced differently from the live `mock` route.
+CANARY_ROUTES = """
+routes:
+  mock:
+    - name: canary-mock
+      provider: mock
+      model: mock/canary
+      options: { latency_ms: 20 }
+      pricing: { input_per_mtok: 0.10, output_per_mtok: 0.40 }
+"""
+
+
+def check_canary(api: httpx.Client, admin: dict, key: str) -> None:
+    """Roll a route change out to all traffic, confirm it serves, then withdraw it."""
+    r = api.put(
+        "/v1/admin/routes/canary",
+        headers=admin,
+        json={"config": CANARY_ROUTES, "weight": 100, "note": "smoke test"},
+    )
+    check(r.status_code == 200, f"publish canary: {r.status_code} {r.text}")
+    version = r.json()["canary"]["version"]
+    try:
+        served = chat(api, key, "mock", "which table served this?", cache=False)
+        check(served.status_code == 200, f"canary chat: {served.status_code} {served.text}")
+        meta = served.json()["nexusgate"]
+        check(meta["route_variant"] == "canary", f"served by {meta['route_variant']}")
+        check(meta["deployment"] == "canary-mock", f"served by {meta['deployment']}")
+        view = api.get("/v1/admin/routes", headers=admin).json()
+        check(view["canary"]["stats"]["requests"] >= 1, f"canary stats: {view['canary']['stats']}")
+        ok(f"canary {version[:8]} took 100% of traffic and reported its own stats")
+    finally:
+        api.delete("/v1/admin/routes/canary", headers=admin)
+    back = chat(api, key, "mock", "and after withdrawing?", cache=False)
+    check(back.json()["nexusgate"]["route_variant"] == "stable", "traffic did not return to stable")
+    ok("canary withdrawn; traffic back on the stable route table")
 
 
 RUNBOOK = b"""# Billing worker runbook

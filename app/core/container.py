@@ -23,6 +23,7 @@ from app.core.security import ApiKeyStore, TokenService
 from app.gateway.circuit_breaker import CircuitBreaker
 from app.gateway.faults import FaultInjector
 from app.gateway.providers import LiteLLMProvider, MockProvider, Provider
+from app.gateway.rollout import RolloutManager, RolloutSettings
 from app.gateway.router import LLMRouter
 from app.gateway.routing_config import RoutingConfig
 from app.gateway.service import ChatService
@@ -74,6 +75,7 @@ class Services:
     tracer: Tracer
     rag: RagComponents
     agent: ResearchAgent
+    rollout: RolloutManager
 
     async def aclose(self) -> None:
         self.tracer.shutdown()  # flush buffered traces before the process exits
@@ -267,7 +269,16 @@ async def build_services(
         await cache.setup()
 
     meter = UsageMeter(redis, settings.usage_retention_days)
-    chat = ChatService(router, cache, meter, tracer)
+    rollout = RolloutManager(
+        redis,
+        router.config,
+        settings=RolloutSettings(
+            min_requests=settings.canary_min_requests,
+            max_error_rate=settings.canary_max_error_rate,
+            refresh_seconds=settings.rollout_refresh_seconds,
+        ),
+    )
+    chat = ChatService(router, cache, meter, tracer, rollout)
     rag = await build_rag(
         settings,
         redis,
@@ -295,4 +306,5 @@ async def build_services(
         tracer=tracer,
         rag=rag,
         agent=ResearchAgent(rag.retriever, chat, tracer, max_steps=settings.agent_max_steps),
+        rollout=rollout,
     )

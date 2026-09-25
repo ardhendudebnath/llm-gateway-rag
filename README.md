@@ -53,7 +53,7 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 48 labelled questions | **recall@5 1.000, MRR 0.990** |
-| Tests | **270** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
+| Tests | **300** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
 
@@ -232,6 +232,11 @@ python scripts/deploy_space.py <hf-user>/nexusgate      # add --private to try i
 | `GET /v1/agents/graph` | key / JWT | The agent's nodes, allowed transitions and a Mermaid diagram |
 | `POST/GET/DELETE /v1/admin/keys` | admin token | Issue, list, revoke API keys |
 | `GET /v1/admin/providers` | admin token | Route table + live circuit-breaker states |
+| `GET /v1/admin/routes` | admin token | The live route table, plus any canary and how it is faring |
+| `PUT /v1/admin/routes/canary` | admin token | Send a share of traffic to a candidate route table |
+| `POST /v1/admin/routes/canary/weight` | admin token | Turn the canary's share up or down |
+| `POST /v1/admin/routes/canary/promote` | admin token | Make the canary the table for all traffic |
+| `DELETE /v1/admin/routes/canary` | admin token | Withdraw it; everything returns to stable |
 | `GET/DELETE /v1/admin/dead-letters` | admin token | Jobs that failed for good; inspect or clear |
 | `GET /v1/admin/alerts` | admin token | Alerts Alertmanager has delivered, newest first |
 | `GET/PUT/DELETE /v1/admin/faults[/{deployment}]` | admin token | Chaos testing: make a deployment fail on every replica (off unless enabled) |
@@ -281,6 +286,13 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Reranking has a 250 ms wait budget**, because it is optional work: waiting for it cost more than skipping it.
 - **All of it is counted and alerted on:** `nexusgate_degraded_total`, `nexusgate_inference_shed_total`, and the `NexusGateSheddingLoad` alert.
 
+**A route change is a deployment, so it rolls out like one.** Swapping a provider, reordering a fallback chain or putting a cheaper model in front is a production change that happens to be configuration. [`app/gateway/rollout.py`](app/gateway/rollout.py) ships one to a percentage of traffic, with no restart: `PUT /v1/admin/routes/canary` publishes a candidate table at a weight, `GET /v1/admin/routes` shows how it is doing, and it is then promoted or withdrawn.
+- **It withdraws itself.** Once the canary has served `NEXUSGATE_CANARY_MIN_REQUESTS` (20), an error rate above `NEXUSGATE_CANARY_MAX_ERROR_RATE` (10%) drops its weight to 0 and records why. A canary that needs someone watching a dashboard is just a slower outage.
+- **The counters are pooled in Redis**, not per replica: with 2 pods each judging the canary on its own handful of requests, neither would reach a sample worth acting on. The same read gives every replica the current table within a second.
+- **Every response says which table served it** (`nexusgate.route_variant`), and so does the log line, so a difference in behaviour can be traced to the version that caused it.
+- **A bad table is rejected at publish time**, not at request time: it is parsed and validated before it is stored, so a typo is a 400 for the admin rather than a 500 for a user.
+- **Nothing here can fail a request.** If Redis is unreadable the gateway serves the table it started with — exactly what it would have done without any of this.
+
 **Chaos is a first-class API.** `PUT /v1/admin/faults/{deployment}` makes a deployment fail on demand, on every replica. The table lives in Redis, so it isn't one pod's memory, and it is cached for a second so it costs nothing per request. The failure is raised exactly where a real provider error would be, so it exercises the real retry, fallback and breaker paths. It is off unless `NEXUSGATE_FAULT_INJECTION_ENABLED` is set, which only the local cluster overlay does.
 
 **Observability that can't take the service down.** Every completion produces a Langfuse generation (prompt, response, model, tokens, cost, cache hit) *and* a structured log line, both carrying the request id.
@@ -325,8 +337,8 @@ app/
   api/            FastAPI routers: chat, rag, agents, account, admin, alerts, health
   core/           config, auth (API keys + JWT), rate limiting, metering, embeddings,
                   bounded inference, logging, DI
-  gateway/        provider adapters, routing config, circuit breaker, router, pricing,
-                  fault injection, chat service
+  gateway/        provider adapters, routing config, canary rollouts, circuit breaker,
+                  router, pricing, fault injection, chat service
   cache/          semantic cache (bruteforce / RediSearch indexes)
   rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
   agents/         the state-graph engine, the research agent's nodes, prompts and run state
@@ -364,6 +376,7 @@ Eight weekly milestones, following the project spec:
 | 8 | README, demo GIF, one-container demo, live deployment | ✅ except the live URL: `scripts/deploy_space.py` is ready and waits on a Hugging Face login |
 | — | Beyond the roadmap: the agent layer the spec lists as a stretch feature (§4.7) | ✅ [`app/agents`](app/agents): an explicit state graph, published as a diagram |
 | — | Beyond the roadmap: autoscaling tied to queue depth (§10) | ✅ [HPAs](infra/k8s/base/autoscaling.yaml) on CPU (API) and ingestion queue depth (workers) |
+| — | Beyond the roadmap: canary rollout of provider changes (§10) | ✅ [`app/gateway/rollout.py`](app/gateway/rollout.py): weighted traffic split with automatic rollback |
 
 ## What I'd do with more time
 

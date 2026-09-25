@@ -65,7 +65,15 @@ class LLMRouter:
         self._default_timeout = default_timeout
         self._sleep = sleep
         self.faults = faults
+        self._breaker_factory = breaker_factory
         self.breakers = {name: breaker_factory() for name in config.deployments}
+
+    def _breaker(self, deployment: str) -> CircuitBreaker:
+        """A canary route table can name deployments the start-up table never had; they get a
+        breaker on first use, and keep it if the canary is promoted."""
+        if deployment not in self.breakers:
+            self.breakers[deployment] = self._breaker_factory()
+        return self.breakers[deployment]
 
     @property
     def routes(self) -> list[str]:
@@ -77,14 +85,18 @@ class LLMRouter:
             for name, b in self.breakers.items()
         }
 
-    async def complete(self, request: ChatRequest) -> RoutedResult:
-        chain = self.config.routes.get(request.model)
+    async def complete(
+        self, request: ChatRequest, config: RoutingConfig | None = None
+    ) -> RoutedResult:
+        """`config` overrides the start-up route table for this request: that is how a canary
+        rollout (app/gateway/rollout.py) serves a slice of traffic from a different table."""
+        chain = (config or self.config).routes.get(request.model)
         if chain is None:
             raise UnknownModelError(request.model)
 
         attempts: list[Attempt] = []
         for position, dep in enumerate(chain):
-            breaker = self.breakers[dep.name]
+            breaker = self._breaker(dep.name)
             if not breaker.allow_request():
                 attempts.append(Attempt(deployment=dep.name, outcome="skipped_circuit_open"))
                 metrics.LLM_CALLS.labels(dep.name, "skipped_circuit_open").inc()
@@ -120,7 +132,9 @@ class LLMRouter:
         breaker: CircuitBreaker,
         attempts: list[Attempt],
     ) -> ProviderResponse | None:
-        provider = self._providers[dep.provider]
+        provider = self._providers.get(dep.provider)
+        if provider is None:  # only reachable if a canary table names an unregistered adapter
+            raise UnknownModelError(f"no provider adapter '{dep.provider}' for {dep.name}")
         timeout = dep.timeout_seconds or self._default_timeout
 
         for retry in range(dep.max_retries + 1):

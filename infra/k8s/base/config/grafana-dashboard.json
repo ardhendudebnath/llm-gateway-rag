@@ -263,6 +263,31 @@
     },
     {
       "type": "timeseries",
+      "title": "Route rollout: stable vs canary",
+      "description": "Which route table served each request, and how the canary is faring. A canary whose error rate passes its budget withdraws itself (app/gateway/rollout.py).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (variant, outcome) (rate(nexusgate_rollout_requests_total[5m]))",
+          "legendFormat": "{{variant}} {{outcome}}/s"
+        },
+        {
+          "refId": "B",
+          "expr": "nexusgate_rollout_canary_weight",
+          "legendFormat": "canary weight %"
+        },
+        {
+          "refId": "C",
+          "expr": "increase(nexusgate_rollout_rollbacks_total[5m])",
+          "legendFormat": "automatic rollbacks"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
       "title": "Agent runs: outcomes and steps",
       "description": "One run is several LLM calls (app/agents). budget_exceeded means a critique/revise cycle hit the step budget and the last draft was returned.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },

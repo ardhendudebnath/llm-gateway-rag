@@ -11,7 +11,9 @@ from app.cache.semantic_cache import CachedCompletion, SemanticCache
 from app.core.concurrency import OverloadedError
 from app.core.metering import UsageMeter
 from app.core.security import Principal
+from app.gateway.rollout import RolloutManager, Variant
 from app.gateway.router import LLMRouter, UnknownModelError
+from app.gateway.routing_config import RoutingConfig
 from app.gateway.schemas import (
     ChatRequest,
     ChatResponse,
@@ -33,14 +35,21 @@ class ChatService:
         cache: SemanticCache | None,
         meter: UsageMeter,
         tracer: Tracer | None = None,
+        rollout: RolloutManager | None = None,
     ):
         self._router = router
         self._cache = cache
         self._meter = meter
         self._tracer = tracer or NoopTracer()
+        self._rollout = rollout
 
     async def complete(self, principal: Principal, request: ChatRequest) -> ChatResponse:
-        if request.model not in self._router.config.routes:
+        # Which route table serves this request: the stable one, or a canary being rolled out.
+        # Picked before the route is validated, because a canary may be the thing that adds it.
+        config, variant = (
+            await self._rollout.select() if self._rollout else (self._router.config, None)
+        )
+        if request.model not in config.routes:
             raise UnknownModelError(request.model)
         with self._tracer.chat(
             tenant_id=principal.tenant_id,
@@ -49,12 +58,29 @@ class ChatService:
             messages=[m.model_dump() for m in request.messages],
             model_parameters={"temperature": request.temperature, "max_tokens": request.max_tokens},
         ) as trace:
-            response = await self._complete(principal, request, trace)
-            _log_completion(principal, trace, response.nexusgate.latency_ms)
+            try:
+                response = await self._complete(principal, request, trace, config)
+            except Exception:
+                # A provider that fails everywhere counts against whichever table sent it there;
+                # that is the signal a canary is rolled back on.
+                await self._record_variant(variant, ok=False)
+                raise
+            await self._record_variant(variant, ok=True)
+            if variant is not None:
+                response.nexusgate.route_variant = variant.name
+            _log_completion(principal, trace, response.nexusgate.latency_ms, variant)
             return response
 
+    async def _record_variant(self, variant: Variant | None, *, ok: bool) -> None:
+        if self._rollout is not None and variant is not None:
+            await self._rollout.record(variant, ok=ok)
+
     async def _complete(
-        self, principal: Principal, request: ChatRequest, trace: ChatTrace
+        self,
+        principal: Principal,
+        request: ChatRequest,
+        trace: ChatTrace,
+        config: RoutingConfig | None = None,
     ) -> ChatResponse:
         start = time.perf_counter()
         use_cache = self._cache is not None and request.cache
@@ -95,7 +121,7 @@ class ChatService:
                 )
             metrics.CACHE_LOOKUPS.labels("miss").inc()
 
-        result = await self._router.complete(request)
+        result = await self._router.complete(request, config)
         resp = result.response
         trace.output = resp.content
         trace.model = resp.model
@@ -166,7 +192,9 @@ class ChatService:
             log.exception("semantic cache store failed")
 
 
-def _log_completion(principal: Principal, trace: ChatTrace, latency_ms: float) -> None:
+def _log_completion(
+    principal: Principal, trace: ChatTrace, latency_ms: float, variant: Variant | None = None
+) -> None:
     """One line per completion. The request id ties it to the access log and the Langfuse trace."""
     log.info(
         "chat completion",
@@ -174,6 +202,8 @@ def _log_completion(principal: Principal, trace: ChatTrace, latency_ms: float) -
             "tenant_id": principal.tenant_id,
             "key_id": principal.key_id,
             "route": trace.route,
+            "route_variant": variant.name if variant else None,
+            "route_version": variant.version if variant else None,
             "deployment": trace.deployment,
             "cached": trace.cached,
             "model": trace.model,

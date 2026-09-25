@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # --- agent (app/agents): the step budget is the graph's safety net against a cycle ---
     agent_max_steps: int = Field(default=12, gt=0)
 
+    # --- canary rollouts of the route table (app/gateway/rollout.py) ---
+    rollout_refresh_seconds: float = Field(default=1.0, gt=0)  # how fast a replica sees a change
+    canary_min_requests: int = Field(default=20, gt=0)  # before its error rate means anything
+    canary_max_error_rate: float = Field(default=0.10, gt=0, le=1)  # above this it withdraws itself
+
     # --- gateway resilience ---
     provider_timeout_seconds: float = 30.0
     breaker_failure_threshold: int = 3

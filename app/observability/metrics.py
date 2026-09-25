@@ -92,6 +92,18 @@ RAG_EMPTY_RETRIEVALS = Counter(
     "nexusgate_rag_empty_retrievals_total", "Answer requests where no passage matched (no LLM call)"
 )
 
+ROLLOUT_REQUESTS = Counter(
+    "nexusgate_rollout_requests_total",
+    "Chat requests by which route table served them",
+    ["variant", "outcome"],  # stable | canary
+)
+ROLLOUT_CANARY_WEIGHT = Gauge(
+    "nexusgate_rollout_canary_weight", "Percent of traffic the canary route table is taking"
+)
+ROLLOUT_ROLLBACKS = Counter(
+    "nexusgate_rollout_rollbacks_total", "Canaries withdrawn automatically for failing"
+)
+
 AGENT_RUNS = Counter(
     "nexusgate_agent_runs_total",
     "Agent runs by outcome",

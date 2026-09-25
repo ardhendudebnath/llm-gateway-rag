@@ -50,6 +50,9 @@ class Attempt(BaseModel):
 class GatewayMeta(BaseModel):
     deployment: str | None
     cached: bool
+    route_variant: str | None = Field(
+        default=None, description="Which route table served it: 'stable' or 'canary'."
+    )
     cache_similarity: float | None = None
     cost_usd: float
     latency_ms: float

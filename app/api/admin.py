@@ -51,6 +51,84 @@ async def providers(services: Services = Depends(get_services)) -> dict:
     }
 
 
+class CanaryRequest(BaseModel):
+    config: str = Field(
+        min_length=1, description="A complete route table, YAML or JSON, same shape as routes.yaml."
+    )
+    weight: int = Field(default=10, ge=0, le=100, description="Percent of traffic to send to it.")
+    note: str | None = Field(default=None, max_length=200, description="Why this is going out.")
+
+
+class WeightRequest(BaseModel):
+    weight: int = Field(ge=0, le=100)
+
+
+async def _rollout_view(services: Services) -> dict:
+    rollout = services.rollout
+    stable_version, stable_config = await rollout.stable()
+    canary = await rollout.canary()
+    view = {
+        "stable": {
+            "version": stable_version,
+            "routes": {a: [d.name for d in c] for a, c in stable_config.routes.items()},
+            "stats": await rollout.stats(stable_version),
+        },
+        "canary": None,
+    }
+    if canary is not None:
+        state, config = canary
+        stats = await rollout.stats(state.version)
+        errors = stats["errors"] / stats["requests"] if stats["requests"] else 0.0
+        view["canary"] = {
+            **vars(state),
+            "active": state.active,
+            "routes": {a: [d.name for d in c] for a, c in config.routes.items()},
+            "stats": {**stats, "error_rate": round(errors, 4)},
+            "rolls_back_above": rollout.settings.max_error_rate,
+            "after_requests": rollout.settings.min_requests,
+        }
+    return view
+
+
+@router.get("/routes", summary="The live route table, and any canary being rolled out")
+async def routes(services: Services = Depends(get_services)) -> dict:
+    return await _rollout_view(services)
+
+
+@router.put("/routes/canary", summary="Send a share of traffic to a candidate route table")
+async def publish_canary(body: CanaryRequest, services: Services = Depends(get_services)) -> dict:
+    """The config is parsed and validated before anything is stored, so a malformed table is a
+    400 here rather than a failed request later. Replicas pick it up within a second."""
+    try:
+        await services.rollout.publish(body.config, body.weight, body.note)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"invalid route table: {e}") from e
+    return await _rollout_view(services)
+
+
+@router.post("/routes/canary/weight", summary="Change how much traffic the canary takes")
+async def set_canary_weight(
+    body: WeightRequest, services: Services = Depends(get_services)
+) -> dict:
+    if await services.rollout.set_weight(body.weight) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no canary is published")
+    return await _rollout_view(services)
+
+
+@router.post("/routes/canary/promote", summary="Make the canary the route table for all traffic")
+async def promote_canary(services: Services = Depends(get_services)) -> dict:
+    if await services.rollout.promote() is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no canary is published")
+    return await _rollout_view(services)
+
+
+@router.delete("/routes/canary", summary="Withdraw the canary; all traffic returns to stable")
+async def discard_canary(services: Services = Depends(get_services)) -> dict:
+    if not await services.rollout.discard():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="no canary is published")
+    return await _rollout_view(services)
+
+
 class FaultRequest(BaseModel):
     failure_rate: float = Field(ge=0, le=1, description="Share of calls to fail, 0 to 1.")
 

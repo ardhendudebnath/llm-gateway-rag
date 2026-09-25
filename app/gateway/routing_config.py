@@ -1,5 +1,6 @@
 """Route table: a model alias maps to an ordered fallback chain of deployments."""
 
+import hashlib
 from pathlib import Path
 
 import yaml
@@ -51,3 +52,13 @@ class RoutingConfig(BaseModel):
     def from_yaml(cls, path: Path) -> "RoutingConfig":
         with path.open(encoding="utf-8") as f:
             return cls.model_validate(yaml.safe_load(f))
+
+    @classmethod
+    def from_text(cls, text: str) -> "RoutingConfig":
+        """Parse a route table posted to the admin API, rather than read from disk."""
+        return cls.model_validate(yaml.safe_load(text))
+
+    def fingerprint(self) -> str:
+        """Short stable id for a route table, so two versions can be told apart in logs."""
+        canonical = self.model_dump_json(exclude_defaults=False)
+        return hashlib.sha256(canonical.encode()).hexdigest()[:12]
