@@ -121,6 +121,15 @@ class LLMRouter:
             self._breaker(dep.name)  # make sure lazily-created breakers take part
         await self.cluster.sync(self.breakers, [dep.name for dep in chain])
 
+    async def sync_breakers(self) -> None:
+        """Bring every known breaker up to date, for readers rather than for a request.
+
+        Without this a pod that has not served a request lately reports its own stale view: the
+        admin page showed a closed circuit next to shared state saying it was open.
+        """
+        if self.cluster is not None:
+            await self.cluster.sync(self.breakers, list(self.breakers))
+
     async def _failed(self, name: str, breaker: CircuitBreaker) -> bool:
         """Record a failure, and report whether the circuit is now open — here or cluster-wide."""
         if self.cluster is not None:

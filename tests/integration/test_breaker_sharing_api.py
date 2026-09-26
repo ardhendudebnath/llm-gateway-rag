@@ -80,6 +80,28 @@ async def test_a_second_replica_skips_a_deployment_it_never_called(settings, red
     assert second.calls == ["secondary"], "it never called the failing deployment at all"
 
 
+async def test_the_admin_view_is_not_stale_on_a_replica_that_has_been_idle(
+    settings, redis_pair, api_key, admin_headers
+):
+    """Found on the cluster: a pod that had served no requests reported a closed circuit next to
+    shared state saying it was open. The two columns must agree."""
+    first = ScriptedProvider()
+    first.always_fail("primary")
+    async with replica(settings, redis_pair, first) as one:
+        for _ in range(3):
+            await chat(one, api_key)
+
+    idle = ScriptedProvider()  # this replica never serves a chat request at all
+    async with replica(settings, redis_pair, idle) as two:
+        body = (await two.get("/v1/admin/providers", headers=admin_headers)).json()
+
+    assert body["shared"]["primary"]["open"] is True
+    assert body["breakers"]["primary"]["state"] == "open", (
+        "the local view was refreshed for the read"
+    )
+    assert idle.calls == []
+
+
 async def test_without_sharing_every_replica_learns_the_hard_way(settings, redis_pair, api_key):
     alone = settings.model_copy(update={"breaker_shared": False})
     first = ScriptedProvider()

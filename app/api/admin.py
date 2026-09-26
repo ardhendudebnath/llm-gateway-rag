@@ -47,6 +47,7 @@ async def providers(services: Services = Depends(get_services)) -> dict:
     including how much cooldown an open circuit has left."""
     router_ = services.router
     cluster = router_.cluster
+    await router_.sync_breakers()  # so the two views below cannot disagree
     return {
         "routes": {
             alias: [d.name for d in chain] for alias, chain in router_.config.routes.items()
