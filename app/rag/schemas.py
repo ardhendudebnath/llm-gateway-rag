@@ -1,5 +1,7 @@
 """Public request/response models for the /v1/rag endpoints."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.gateway.schemas import GatewayMeta, UsageOut
@@ -25,6 +27,12 @@ class SearchHit(BaseModel):
 class SearchResponse(BaseModel):
     query: str
     reranked: bool
+    retrieval: Literal["dense", "hybrid"] = Field(
+        default="dense",
+        description="'hybrid' fuses BM25 with the vector ranking, which is what finds exact "
+        "identifiers; 'dense' means vectors only, either by configuration or because this "
+        "collection has no lexical vector.",
+    )
     hits: list[SearchHit]
 
 

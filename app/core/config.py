@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     canary_min_requests: int = Field(default=20, gt=0)  # before its error rate means anything
     canary_max_error_rate: float = Field(default=0.10, gt=0, le=1)  # above this it withdraws itself
 
+    # Hybrid retrieval: BM25 sparse vectors fused with the dense ones by reciprocal rank
+    # (app/rag/lexical.py). Dense retrieval alone misses queries that are just an identifier.
+    # A collection created before this existed has no lexical vector, and stays dense-only.
+    retrieval_hybrid: bool = True
+    # How the two halves are combined: "rrf" by ranks, "dbsf" by normalised scores. See
+    # eval/RESULTS.md for what each does to recall and to ordering.
+    retrieval_fusion: Literal["rrf", "dbsf"] = "rrf"
+
     # --- gateway resilience ---
     provider_timeout_seconds: float = 30.0
     breaker_failure_threshold: int = 3

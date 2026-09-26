@@ -8,7 +8,7 @@ from app.core.concurrency import OverloadedError
 from app.core.embeddings import Embedder
 from app.observability import metrics
 from app.rag.reranking import Reranker
-from app.rag.vector_store import QdrantChunkStore, StoredChunk
+from app.rag.vector_store import RRF, QdrantChunkStore, StoredChunk
 
 
 @dataclass(frozen=True)
@@ -29,11 +29,17 @@ class Retriever:
         reranker: Reranker | None,
         *,
         candidates: int,
+        hybrid: bool = False,
+        fusion: str = RRF,
     ):
         self._store = store
         self._embedder = embedder
         self.reranker = reranker
         self.candidates = candidates
+        self.fusion = fusion
+        # Hybrid needs a collection that carries the lexical vector; without one, dense-only is the
+        # honest answer rather than an error, and the store has already said so at start-up.
+        self.hybrid = hybrid and store.supports_lexical
 
     async def search(
         self, tenant_id: str, query: str, top_k: int, *, rerank: bool = True
@@ -46,8 +52,13 @@ class Retriever:
 
         start = time.perf_counter()
         limit = max(self.candidates, top_k) if use_reranker else top_k
-        hits = await self._store.search(tenant_id, vector, limit)
-        metrics.RAG_STAGE_LATENCY.labels("vector_search").observe(time.perf_counter() - start)
+        if self.hybrid:
+            hits = await self._store.hybrid_search(tenant_id, vector, query, limit, self.fusion)
+        else:
+            hits = await self._store.search(tenant_id, vector, limit)
+        metrics.RAG_STAGE_LATENCY.labels(
+            "hybrid_search" if self.hybrid else "vector_search"
+        ).observe(time.perf_counter() - start)
 
         if not use_reranker or not hits:
             return [RetrievedChunk(h) for h in hits[:top_k]]
@@ -56,8 +67,9 @@ class Retriever:
         try:
             scores = await self.reranker.scores(query, [h.text for h in hits])
         except OverloadedError:
-            # Degrade rather than fail: vector order is still a good answer (recall@5 0.979 in the
-            # eval, against 1.000 with reranking). Callers see rerank_score=None.
+            # Degrade rather than fail. With hybrid retrieval the unreranked order finds just as
+            # much (recall@5 1.000 either way in the eval); what is lost is ordering, hit@1 0.922
+            # -> 0.794. Callers see rerank_score=None.
             metrics.DEGRADED.labels("rerank_skipped").inc()
             return [RetrievedChunk(h) for h in hits[:top_k]]
         metrics.RAG_STAGE_LATENCY.labels("rerank").observe(time.perf_counter() - start)

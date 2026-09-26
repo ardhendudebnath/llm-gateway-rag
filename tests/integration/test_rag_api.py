@@ -108,6 +108,7 @@ async def test_search_returns_scored_passages(client, api_key):
     assert resp.status_code == 200
     body = resp.json()
     assert body["reranked"] is False  # no reranker configured in tests
+    assert body["retrieval"] == "hybrid", "how the passages were found, not how they were ordered"
     top = body["hits"][0]
     assert "five business days" in top["text"]
     assert top["heading"] == "Incident handbook > Postmortems"

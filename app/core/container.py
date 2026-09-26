@@ -174,13 +174,15 @@ async def build_rag(
     job_queue: JobQueue | None = None,
 ) -> RagComponents:
     store = QdrantChunkStore(qdrant or build_qdrant(settings), settings.rag_collection)
-    await store.setup(embedder.dim)
+    await store.setup(embedder.dim, lexical=settings.retrieval_hybrid)
     documents = DocumentRegistry(redis)
     retriever = Retriever(
         store,
         embedder,
         reranker if reranker is not None else build_reranker(settings),
         candidates=settings.rag_rerank_candidates,
+        hybrid=settings.retrieval_hybrid,
+        fusion=settings.retrieval_fusion,
     )
     ingestion = IngestionService(
         store,

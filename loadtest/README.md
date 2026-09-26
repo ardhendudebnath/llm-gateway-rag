@@ -51,9 +51,10 @@ peaking at ~630 MiB, no restarts.** A bigger memory limit would only have moved 
 **3. That fix regressed RAG, and the next one repaired it.** With a queue in front of the
 reranker, RAG requests *waited*: at 25 users RAG search p95 went from 920 ms before the fix to
 2,000 ms after it, and reached 4,100 ms at 100 users.
-Reranking is optional (vector order alone scored recall@5 0.979 in the [retrieval
-eval](../eval/README.md)), so it got a **250 ms wait budget**: a rerank that can't start in time is
-skipped. p95 fell about 4× at 50–100 users, and the per-class ceilings became:
+Reranking is optional — unreranked order scored recall@5 0.971 in the [retrieval
+eval](../eval/README.md) at the time, and 1.000 now that retrieval is hybrid — so it got a **250 ms
+wait budget**: a rerank that can't start in time is skipped. p95 fell about 4× at 50–100 users, and
+the per-class ceilings became:
 
 | Class (p95 objective) | Before | Bounded concurrency | + wait budget |
 |---|---:|---:|---:|
@@ -67,8 +68,10 @@ horizontally, since it is stateless (Redis and Qdrant hold the state).
 
 **5. RAG has a latency floor on CPU.** Unloaded, a RAG search takes ~400 ms at the median, most of
 it the cross-encoder scoring 20 passages. That is why no load level meets 500 ms over the whole
-mix. The measured options: rerank 10 candidates instead of 20 (the eval measured 107 vs 231 ms,
-recall@5 0.979 vs 1.000), a smaller reranker, or a GPU.
+mix. The measured options: rerank 10 candidates instead of 20 (the eval measured 107 vs 231 ms), a
+smaller reranker, or a GPU. Hybrid retrieval has since made a fourth option real — skipping the
+reranker entirely now costs ordering rather than recall (hit@1 0.922 → 0.794, recall@5 unchanged at
+1.000), which these numbers predate and a re-run would price properly.
 
 **6. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
 primary was made to fail every call for 45 s (through `PUT /v1/admin/faults/{deployment}`, which

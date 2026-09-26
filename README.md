@@ -52,8 +52,8 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | Chat throughput, p95 under 500 ms, <1% errors | **153.7 req/s**, up from 20.6 before the load-test fixes |
 | RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
-| Retrieval quality, 48 labelled questions | **recall@5 1.000, MRR 0.990** |
-| Tests | **367** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
+| Retrieval quality, 102 labelled questions, 227 chunks | dense **recall@5 0.873** → hybrid **1.000**; identifier-only queries 0.722 → 1.000 |
+| Tests | **594** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
 
@@ -280,7 +280,12 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 **Only a SHA-256 of each API key is stored.** A Redis dump contains no usable credentials. JWTs are checked against the key record on every request, so revoking a key immediately kills its outstanding tokens. In `prod` the app refuses to start with the default secrets.
 
 **RAG on Qdrant directly, no framework.** The pipeline is ~800 lines, docstrings included, in [`app/rag/`](app/rag), using `qdrant-client` and `fastembed` without LlamaIndex or LangChain. Every stage is small, injectable and unit-tested, and the retrieval eval runs the exact production code.
-- **Chunking was chosen by measurement.** [Three strategies](app/rag/chunking.py) were compared on 48 labelled questions: fixed windows, sentence packing, and structure-aware chunks that start at every heading and carry a "title > heading path" prefix. Structure-aware won (MRR 0.924 vs 0.856 without a reranker). A cross-encoder rerank of the top 20 then reaches **recall@5 1.000, MRR 0.990** at ~230 ms per query. Full method, numbers and limitations: [eval/README.md](eval/README.md).
+- **Chunking was chosen by measurement.** [Three strategies](app/rag/chunking.py) were compared on 102 labelled questions: fixed windows, sentence packing, and structure-aware chunks that start at every heading and carry a "title > heading path" prefix. Structure-aware won, and its margin grows with the corpus — +0.025 recall@5 on 70 chunks, +0.123 on 227.
+- **The eval was saturated, so it was rebuilt.** Every config with a reranker scored recall@5 1.000 on the original 13 documents: with five slots and seventy candidates, retrieval is not a hard problem, and the number measured nothing. [`eval/generate_corpus.py`](eval/generate_corpus.py) adds several hundred generated documents in the same shapes, so a question about one error code competes with six hundred others. The same pipeline drops to **recall@5 0.873** there, and to **0.722 on queries that are nothing but an identifier**.
+- **Retrieval is hybrid because dense retrieval fails at identifiers.** The nearest neighbours of `NG-1017` are the codes either side of it. [`app/rag/lexical.py`](app/rag/lexical.py) builds BM25 sparse vectors — 60 lines, no extra model, with Qdrant applying the IDF from its own statistics — and Qdrant fuses them with the dense ranking in one request. That takes recall@5 to **1.000 on all three question kinds at 14.7 ms**, where reranked dense retrieval reached 0.922 at 515 ms: fusion is better at *finding* the passage and ~35× cheaper than reranking to fix the same problem.
+- **Rank fusion and score fusion do different jobs.** RRF ignores score magnitude, so a passage matched exactly (BM25 4.6 against 0.14 for its neighbours) counts only as "rank 1" and can lose a tie; DBSF normalises and adds, which puts it first far more often (hit@1 0.873 vs 0.794) but costs a point of recall. RRF is the default because recall decides whether an answer is possible at all, and because it assumes nothing about score distributions. `NEXUSGATE_RETRIEVAL_FUSION=dbsf` switches it.
+- **The reranker now earns its place on ordering, not recall.** On fused candidates a cross-encoder lifts hit@1 from 0.794 to 0.922 for ~500 ms. Turning it off is a defensible trade the eval can price, which it was not before. Full method, numbers and limitations: [eval/README.md](eval/README.md).
+- **Hybrid needs a collection that was created for it.** A sparse vector cannot be added to an existing Qdrant collection, so a deployment that predates this keeps working dense-only and says so once at start-up, rather than failing or silently returning worse results.
 - **Multi-tenancy is enforced in the store.** It is one collection with a `tenant_id` payload index (`is_tenant=True`), and every query and delete carries a tenant filter. There is no code path that searches across tenants. A test proves tenant B can't retrieve or delete tenant A's documents.
 - **Ingestion is idempotent.** Document ids are content hashes and point ids are UUIDv5 of (tenant, document, chunk), so re-uploads and retried jobs overwrite rather than duplicate.
 - **Answers go through the normal chat path**, so they get fallback, circuit breaking, metering and the semantic cache. Retrieved passages sit in the system message, which is part of the cache namespace, so an answer is only reused when the *same* passages were retrieved. If nothing matches, the API says so without calling an LLM, so there is no cost and no invented answer.
@@ -379,7 +384,8 @@ app/
                   circuit breaker + its cluster-wide state, router, pricing, fault injection,
                   chat service
   cache/          semantic cache (bruteforce / RediSearch indexes)
-  rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
+  rag/            parsing, chunking, Qdrant store, BM25 sparse vectors, reranking, retrieval
+                  (dense + hybrid), ingestion, grounded answers
   agents/         the state-graph engine, the research agent's nodes, prompts and run state
   workers/        job records + DLQ, upload payloads, queues (celery / inline), Celery entry point
   observability/  Prometheus metrics, request-ID middleware, Langfuse tracing
@@ -396,7 +402,8 @@ scripts/          cluster-up / cluster-down (PowerShell + bash), smoke test, dem
 Containerfile       API and worker image for Kubernetes, built with Podman
 Containerfile.demo  the one-container public demo
 docs/demo.gif       the README walkthrough, generated by scripts/record_gif.py
-eval/             retrieval eval: fictional corpus, 48 labelled questions, harness, results
+eval/             retrieval eval: fictional corpus, a generator for a larger one,
+                  102 labelled questions, harness, results
 loadtest/         Locust traffic, in-cluster runner, chaos test, autoscaling test, results
 ```
 
@@ -418,12 +425,13 @@ Eight weekly milestones, following the project spec:
 | — | Beyond the roadmap: canary rollout of provider changes (§10) | ✅ [`app/gateway/rollout.py`](app/gateway/rollout.py): weighted traffic split with automatic rollback |
 | — | Beyond the roadmap: streaming responses | ✅ SSE with fallback decided before the first token, and a breaker that waits for the whole stream |
 | — | Beyond the roadmap: circuit state shared across replicas | ✅ [`app/gateway/breaker_cluster.py`](app/gateway/breaker_cluster.py): pooled failures, adopted state, one probe per cooldown |
+| — | Beyond the roadmap: hybrid retrieval (§4.4 lists vector search only) | ✅ [`app/rag/lexical.py`](app/rag/lexical.py): BM25 sparse vectors fused with the dense ones in Qdrant, and an eval set hard enough to show the difference |
 
 ## What I'd do with more time
 
 - Load-test the streaming path: the numbers above are for whole responses, and time to first token
   under load is the figure a streaming client actually feels.
-- Hybrid retrieval (BM25 + dense), and an LLM-judged eval of answer faithfulness.
+- An LLM-judged eval of answer faithfulness: retrieval is measured, groundedness is not.
 - An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. It needs a real provider, so the offline test suite can't answer it.
 - A model-comparison harness that feeds back into route ordering.
 - GPU inference or a smaller reranker, to lower the RAG latency floor.

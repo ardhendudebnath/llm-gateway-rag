@@ -201,6 +201,12 @@ Drain the queue first, then wait 90 seconds before restarting the billing worker
 
 ## Scaling
 The billing worker scales between two and eight replicas based on queue depth.
+
+## Alerts
+| Alert | Runbook | Severity |
+|---|---|---|
+| BillingQueueBacklog | RB-417 | warning |
+| BillingWorkerCrashLoop | RB-418 | critical |
 """
 
 
@@ -241,6 +247,17 @@ def check_rag(api: httpx.Client, auth: dict, job_timeout: float) -> None:
         body = r.json()
         check(body["hits"] and "90 seconds" in body["hits"][0]["text"], f"search: {body}")
         ok(f"RAG search: right passage ranked first (reranked={body['reranked']})")
+
+        # A bare identifier: no words for an embedding to work with, which is what the lexical half
+        # of hybrid retrieval is for. Dense-only collections answer this from luck, not signal.
+        r = api.post("/v1/rag/search", headers=auth, json={"query": "RB-418", "top_k": 3})
+        check(r.status_code == 200, f"RAG lexical search: {r.status_code} {r.text}")
+        hits = r.json()["hits"]
+        check(
+            any("RB-418" in h["text"] for h in hits),
+            f"a bare identifier found nothing: {[h['text'][:40] for h in hits]}",
+        )
+        ok("RAG search: a bare identifier lookup found its row")
 
         r = api.post(
             "/v1/rag/answer",

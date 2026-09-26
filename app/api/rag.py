@@ -121,6 +121,7 @@ async def search(
         query=body.query,
         # From the hits, not the config: under load, reranking may have been skipped.
         reranked=any(h.rerank_score is not None for h in hits),
+        retrieval="hybrid" if retriever.hybrid else "dense",
         hits=[
             SearchHit(
                 doc_id=h.chunk.doc_id,

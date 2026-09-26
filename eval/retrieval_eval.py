@@ -59,6 +59,10 @@ class Question:
     question: str
     evidence: list[str]
     answer: str
+    # "semantic": a paraphrase, which is what dense retrieval is good at.
+    # "lexical":  names an exact identifier (NG-1017, EMBED_MAX_QUEUE, invoice-mailer) that sits
+    #             among near-identical neighbours, which is where dense retrieval breaks down.
+    kind: str = "semantic"
 
 
 @dataclass(frozen=True)
@@ -69,12 +73,15 @@ class EvalConfig:
     embedder: str  # hash | bge-small
     reranker: str | None = None  # None | minilm
     candidates: int = 20  # vector hits handed to the reranker
+    hybrid: bool = False  # BM25 sparse vectors fused with the dense ones (app/rag/lexical.py)
+    fusion: str = "rrf"  # rrf (ranks) | dbsf (normalised scores)
 
     @property
     def name(self) -> str:
         rerank = f" + {self.reranker} rerank of top {self.candidates}" if self.reranker else ""
         chunking = f"{self.chunker}-{self.max_words}/{self.overlap_words}"
-        return f"{self.embedder} + {chunking}{rerank}"
+        hybrid = f" + bm25 {self.fusion}" if self.hybrid else ""
+        return f"{self.embedder} + {chunking}{hybrid}{rerank}"
 
 
 # Each group changes one variable against the baseline structured-180/40 with bge-small.
@@ -89,6 +96,13 @@ CONFIGS = [
     EvalConfig("fixed", 180, 40, "bge-small", "minilm"),  # reranking
     EvalConfig("structured", 180, 40, "bge-small", "minilm"),
     EvalConfig("structured", 180, 40, "bge-small", "minilm", candidates=10),
+    # Hybrid: the same pipeline with BM25 sparse vectors fused in by reciprocal rank. The pair
+    # with and without the reranker shows whether fusion earns its place on its own.
+    EvalConfig("structured", 180, 40, "bge-small", hybrid=True),
+    EvalConfig("structured", 180, 40, "bge-small", "minilm", hybrid=True),
+    # Score fusion instead of rank fusion: does an exact lexical match deserve more than "rank 1"?
+    EvalConfig("structured", 180, 40, "bge-small", hybrid=True, fusion="dbsf"),
+    EvalConfig("structured", 180, 40, "bge-small", "minilm", hybrid=True, fusion="dbsf"),
 ]
 
 
@@ -162,7 +176,7 @@ async def run_config(
     client = AsyncQdrantClient(location=":memory:")
     try:
         store = QdrantChunkStore(client, "eval")
-        await store.setup(embedder.dim)
+        await store.setup(embedder.dim, lexical=config.hybrid)
         ingestion = IngestionService(
             store,
             _NullRegistry(),
@@ -177,19 +191,43 @@ async def run_config(
             chunks += record.chunks
 
         retriever = Retriever(
-            store, embedder, models.reranker(config.reranker), candidates=config.candidates
+            store,
+            embedder,
+            models.reranker(config.reranker),
+            candidates=config.candidates,
+            hybrid=config.hybrid,
+            fusion=config.fusion,
         )
         per_question, latencies = [], []
         for q in questions:
             start = time.perf_counter()
             hits = await retriever.search(TENANT, q.question, top_k=k)
             latencies.append((time.perf_counter() - start) * 1000)
-            per_question.append({"id": q.id, **score([h.chunk.text for h in hits], q.evidence, k)})
+            per_question.append(
+                {
+                    "id": q.id,
+                    "kind": q.kind,
+                    **score([h.chunk.text for h in hits], q.evidence, k),
+                }
+            )
     finally:
         await client.close()
 
-    def mean(key: str) -> float:
-        return round(statistics.fmean(r[key] for r in per_question), 3)
+    def mean(key: str, rows: list[dict] | None = None) -> float:
+        return round(statistics.fmean(r[key] for r in (rows or per_question)), 3)
+
+    # Reported per kind as well as overall: a config that lifts the average by wrecking one half of
+    # the set is not an improvement, and the two kinds fail for different reasons.
+    by_kind = {}
+    for kind in sorted({r["kind"] for r in per_question}):
+        rows = [r for r in per_question if r["kind"] == kind]
+        by_kind[kind] = {
+            "questions": len(rows),
+            f"recall@{k}": mean("recall", rows),
+            "mrr": mean("mrr", rows),
+            "hit@1": mean("hit1", rows),
+            "misses": [r["id"] for r in rows if r["recall"] < 1],
+        }
 
     return {
         "config": config.name,
@@ -200,26 +238,47 @@ async def run_config(
         "mrr": mean("mrr"),
         "hit@1": mean("hit1"),
         "ms_per_query_p50": round(statistics.median(latencies), 1),
+        "by_kind": by_kind,
         "misses": [r["id"] for r in per_question if r["recall"] < 1],
     }
 
 
 def markdown_table(results: list[dict], k: int) -> str:
+    kinds = sorted({kind for r in results for kind in r.get("by_kind", {})})
+    header = ["Config", "Chunks", f"P@{k}", f"R@{k}"]
+    header += [f"R@{k} {kind}" for kind in kinds]
+    header += ["MRR", "Hit@1", "ms/query (p50)"]
     lines = [
-        f"| Config | Chunks | P@{k} | R@{k} | MRR | Hit@1 | ms/query (p50) |",
-        "|---|---:|---:|---:|---:|---:|---:|",
+        "| " + " | ".join(header) + " |",
+        "|---" + "|---:" * (len(header) - 1) + "|",
     ]
     for r in results:
-        lines.append(
-            f"| {r['config']} | {r['chunks']} | {r[f'precision@{k}']:.3f} | {r[f'recall@{k}']:.3f}"
-            f" | {r['mrr']:.3f} | {r['hit@1']:.3f} | {r['ms_per_query_p50']} |"
-        )
+        by_kind = r.get("by_kind", {})
+        cells = [
+            r["config"],
+            str(r["chunks"]),
+            f"{r[f'precision@{k}']:.3f}",
+            f"{r[f'recall@{k}']:.3f}",
+        ]
+        cells += [
+            f"{by_kind[kind][f'recall@{k}']:.3f}" if kind in by_kind else "—" for kind in kinds
+        ]
+        cells += [f"{r['mrr']:.3f}", f"{r['hit@1']:.3f}", str(r["ms_per_query_p50"])]
+        lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--k", type=int, default=5)
+    parser.add_argument(
+        "--corpus",
+        choices=["small", "large", "both"],
+        default="small",
+        help="'small' is the 13 hand-written documents; 'large' adds generated distractors, which "
+        "is where retrieval starts to be a hard problem (see eval/generate_corpus.py); 'both' runs "
+        "each in turn, which is what RESULTS.md reports",
+    )
     parser.add_argument("--only", help="run configs whose name contains this text")
     parser.add_argument("--model-cache-dir", help="where fastembed stores model weights")
     parser.add_argument(
@@ -228,46 +287,98 @@ async def main() -> int:
     parser.add_argument("--write", action="store_true", help="write RESULTS.md and results.json")
     args = parser.parse_args()
 
-    corpus, questions = load_corpus(), load_questions()
+    questions = load_questions()
     configs = [c for c in CONFIGS if not args.only or args.only in c.name]
-    words = sum(len(d.decode("utf-8").split()) for d in corpus.values())
-    print(f"{len(corpus)} documents, {words} words, {len(questions)} questions, k={args.k}\n")
-
     models = ModelCache(args.model_cache_dir, args.threads)
-    results = []
-    for config in configs:
-        print(f"-> {config.name}", file=sys.stderr, flush=True)
-        results.append(await run_config(config, corpus, questions, models, args.k))
+    sizes = ["small", "large"] if args.corpus == "both" else [args.corpus]
 
-    table = markdown_table(results, args.k)
-    print(table)
-    # Quality first; among equally good configs, the faster one wins.
-    best = max(results, key=lambda r: (r[f"recall@{args.k}"], r["mrr"], -r["ms_per_query_p50"]))
-    print(f"\nBest: {best['config']}. Questions it misses: {', '.join(best['misses']) or 'none'}")
+    runs = []
+    for size in sizes:
+        corpus = load_corpus(large_corpus() if size == "large" else CORPUS_DIR)
+        words = sum(len(d.decode("utf-8").split()) for d in corpus.values())
+        print(
+            f"\n{size} corpus: {len(corpus)} documents, {words} words, "
+            f"{len(questions)} questions, k={args.k}\n"
+        )
+        results = []
+        for config in configs:
+            print(f"-> [{size}] {config.name}", file=sys.stderr, flush=True)
+            results.append(await run_config(config, corpus, questions, models, args.k))
+        # Quality first; among equally good configs, the faster one wins.
+        best = max(results, key=lambda r: (r[f"recall@{args.k}"], r["mrr"], -r["ms_per_query_p50"]))
+        table = markdown_table(results, args.k)
+        print(table)
+        print(
+            f"\nBest: {best['config']}. Questions it misses: {', '.join(best['misses']) or 'none'}"
+        )
+        runs.append(
+            {
+                "corpus": size,
+                "documents": len(corpus),
+                "words": words,
+                "results": results,
+                "best": best["config"],
+                "table": table,
+            }
+        )
 
     if args.write:
-        summary = {
-            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-            "documents": len(corpus),
-            "words": words,
-            "questions": len(questions),
-            "k": args.k,
-            "results": results,
-        }
-        (EVAL_DIR / "results.json").write_text(
-            json.dumps(summary, indent=2) + "\n", encoding="utf-8"
-        )
-        (EVAL_DIR / "RESULTS.md").write_text(
-            f"# Retrieval eval results\n\n"
-            f"Generated by `python -m eval.retrieval_eval --write` on {summary['generated_at']}.\n"
-            f"{len(corpus)} documents ({words} words), {len(questions)} labelled questions, "
-            f"k={args.k}. Timings: CPU only, {args.threads} ONNX threads per model, in-process "
-            f"Qdrant.\n\n{table}\n\n"
-            f"Best by recall@{args.k}, then MRR, then latency: **{best['config']}**. "
-            f"Questions it misses: {', '.join(best['misses']) or 'none'}.\n",
-            encoding="utf-8",
-        )
+        write_results(runs, questions, args)
     return 0
+
+
+def large_corpus() -> Path:
+    """Generate the distractor corpus into a temp directory: one seed, nothing committed."""
+    from tempfile import mkdtemp
+
+    from eval.generate_corpus import generate
+
+    out = Path(mkdtemp(prefix="nexusgate-eval-corpus-"))
+    generate(out)
+    return out
+
+
+def write_results(runs: list[dict], questions: list[Question], args) -> None:
+    generated_at = datetime.now(UTC).isoformat(timespec="seconds")
+    (EVAL_DIR / "results.json").write_text(
+        json.dumps(
+            {
+                "generated_at": generated_at,
+                "questions": len(questions),
+                "kinds": {
+                    kind: sum(1 for q in questions if q.kind == kind)
+                    for kind in sorted({q.kind for q in questions})
+                },
+                "k": args.k,
+                "runs": [{k: v for k, v in run.items() if k != "table"} for run in runs],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    kinds = ", ".join(
+        f"{sum(1 for q in questions if q.kind == kind)} {kind}"
+        for kind in sorted({q.kind for q in questions})
+    )
+    sections = []
+    for run in runs:
+        sections.append(
+            f"## {run['corpus'].capitalize()} corpus: {run['documents']} documents "
+            f"({run['words']} words)\n\n{run['table']}\n\nBest by recall@{args.k}, then MRR, then "
+            f"latency: **{run['best']}**.\n"
+        )
+    (EVAL_DIR / "RESULTS.md").write_text(
+        f"# Retrieval eval results\n\n"
+        f"Generated by `python -m eval.retrieval_eval --corpus both --write` on {generated_at}. "
+        f"{len(questions)} labelled questions ({kinds}), k={args.k}. Timings: CPU only, "
+        f"{args.threads} ONNX threads per model, in-process Qdrant.\n\n"
+        f"The small corpus is the 13 hand-written documents. The large one adds generated "
+        f"distractors ([`generate_corpus.py`](generate_corpus.py)) so that a question about one "
+        f"identifier competes with thousands of rows that look like it; at 70 chunks every config "
+        f"scores recall@5 1.000, which measures nothing.\n\n" + "\n".join(sections),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
