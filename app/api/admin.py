@@ -43,11 +43,16 @@ async def revoke_key(key_id: str, services: Services = Depends(get_services)) ->
 
 @router.get("/providers", summary="Circuit-breaker state per deployment")
 async def providers(services: Services = Depends(get_services)) -> dict:
+    """`breakers` is this replica's view; `shared` is what every replica sees, read from Redis —
+    including how much cooldown an open circuit has left."""
+    router_ = services.router
+    cluster = router_.cluster
     return {
         "routes": {
-            alias: [d.name for d in chain] for alias, chain in services.router.config.routes.items()
+            alias: [d.name for d in chain] for alias, chain in router_.config.routes.items()
         },
-        "breakers": services.router.breaker_states(),
+        "breakers": router_.breaker_states(),
+        "shared": await cluster.states(router_.breakers) if cluster else None,
     }
 
 

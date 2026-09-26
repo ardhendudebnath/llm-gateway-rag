@@ -263,6 +263,31 @@
     },
     {
       "type": "timeseries",
+      "title": "Shared circuit state: adoptions and probes",
+      "description": "'adopted' means a replica took on an open circuit another replica had already learned — the sharing working. 'yielded' means it deferred the post-cooldown probe to another replica, so a recovering provider gets one probe per cooldown, not one per pod (app/gateway/breaker_cluster.py).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 60 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (deployment) (increase(nexusgate_breaker_adoptions_total[5m]))",
+          "legendFormat": "{{deployment}} adopted open"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (outcome) (increase(nexusgate_breaker_probes_total[5m]))",
+          "legendFormat": "probe {{outcome}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (deployment) (nexusgate_circuit_open)",
+          "legendFormat": "{{deployment}} open"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
       "title": "Streaming: time to first token, and how streams end",
       "description": "TTFT p95 per deployment is the latency a streaming client feels. 'interrupted' means a stream broke after its first token, where no fallback was possible (app/gateway/router.py).",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },

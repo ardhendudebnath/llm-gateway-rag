@@ -92,6 +92,17 @@ RAG_EMPTY_RETRIEVALS = Counter(
     "nexusgate_rag_empty_retrievals_total", "Answer requests where no passage matched (no LLM call)"
 )
 
+BREAKER_ADOPTIONS = Counter(
+    "nexusgate_breaker_adoptions_total",
+    "Times a replica took on circuit state another replica had already learned",
+    ["deployment", "state"],
+)
+BREAKER_PROBES = Counter(
+    "nexusgate_breaker_probes_total",
+    "Half-open probes after a cooldown: claimed by this replica, or yielded to another",
+    ["deployment", "outcome"],
+)
+
 STREAMS = Counter(
     "nexusgate_streams_total",
     "Streamed completions by how they ended",

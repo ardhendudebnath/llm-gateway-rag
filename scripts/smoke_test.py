@@ -89,6 +89,20 @@ def check_gateway(api: httpx.Client, admin_token: str, job_timeout: float = 60) 
         )
         ok(f"chaos route: primary {broken[0]}, fallback answered")
 
+        # With 2 API replicas behind one Service, this proves the failure above is visible to both:
+        # the shared view comes from Redis, not from whichever pod answered this request.
+        providers = api.get("/v1/admin/providers", headers=admin).json()
+        shared = providers.get("shared")
+        check(shared is not None, "admin/providers reported no shared breaker state")
+        check("mock-broken" in shared, f"shared state lists {sorted(shared)}")
+        pooled = shared["mock-broken"]
+        check(
+            pooled["open"] or pooled["pooled_failures"] > 0,
+            f"the failure was not pooled across replicas: {pooled}",
+        )
+        state = "open" if pooled["open"] else f"{pooled['pooled_failures']} pooled failures"
+        ok(f"shared breaker state: mock-broken is {state} for every replica")
+
         totals = api.get("/v1/usage", params={"days": 1}, headers=auth).json()["totals"]
         check(totals["requests"] == 3 and totals["cache_hits"] == 1, f"usage totals: {totals}")
         ok("usage metering: 3 requests, 1 cache hit")

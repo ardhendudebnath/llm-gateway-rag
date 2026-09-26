@@ -20,6 +20,7 @@ from app.core.embeddings import Embedder, FastEmbedEmbedder, HashingEmbedder
 from app.core.metering import UsageMeter
 from app.core.rate_limit import TokenBucketLimiter
 from app.core.security import ApiKeyStore, TokenService
+from app.gateway.breaker_cluster import ClusterBreakers
 from app.gateway.circuit_breaker import CircuitBreaker
 from app.gateway.faults import FaultInjector
 from app.gateway.providers import LiteLLMProvider, MockProvider, Provider
@@ -247,6 +248,18 @@ async def build_services(
         default_timeout=settings.provider_timeout_seconds,
         breaker_factory=lambda: CircuitBreaker(
             settings.breaker_failure_threshold, settings.breaker_cooldown_seconds
+        ),
+        cluster=(
+            ClusterBreakers(
+                redis,
+                failure_threshold=settings.breaker_failure_threshold,
+                cooldown_seconds=settings.breaker_cooldown_seconds,
+                failure_window_seconds=settings.breaker_failure_window_seconds,
+                refresh_seconds=settings.breaker_refresh_seconds,
+                probe_seconds=settings.breaker_probe_seconds,
+            )
+            if settings.breaker_shared
+            else None
         ),
         faults=FaultInjector(redis) if settings.fault_injection_enabled else None,
     )

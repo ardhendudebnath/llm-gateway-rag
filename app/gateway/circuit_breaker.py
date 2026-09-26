@@ -5,9 +5,9 @@ OPEN      -> after ``failure_threshold`` consecutive failures; traffic is skippe
 HALF_OPEN -> cooldown elapsed; exactly one probe request is let through. Success closes the
              circuit, failure re-opens it for another cooldown.
 
-State is in-process (one breaker set per API replica). That is deliberate: each replica learns a
-provider is down within ``failure_threshold`` requests, which is cheaper than a Redis round-trip on
-every call. Sharing state across replicas is a listed stretch goal.
+This class is the per-replica hot path: deciding to skip a deployment is a dictionary lookup, not a
+Redis round-trip. ``app/gateway/breaker_cluster.py`` keeps these breakers in agreement across
+replicas and calls ``adopt`` with what the cluster knows.
 """
 
 import time
@@ -60,6 +60,21 @@ class CircuitBreaker:
             self._probe_in_flight = True
             return True
         return False
+
+    def adopt(self, *, state: BreakerState, consecutive_failures: int) -> None:
+        """Take on state another replica learned, as `ClusterBreakers` read it from Redis.
+
+        Adopting OPEN re-stamps the local cooldown timer: the shared key's TTL decides when a probe
+        is due, so this replica must not decide on its own that the cooldown has elapsed.
+        """
+        self._state = state
+        self._consecutive_failures = consecutive_failures
+        if state is BreakerState.OPEN:
+            self._opened_at = self._clock()
+            self._probe_in_flight = False
+        elif state is BreakerState.HALF_OPEN:
+            self._opened_at = self._clock() - self.cooldown_seconds
+            self._probe_in_flight = False
 
     def record_success(self) -> None:
         self._state = BreakerState.CLOSED

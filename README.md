@@ -53,7 +53,7 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 48 labelled questions | **recall@5 1.000, MRR 0.990** |
-| Tests | **349** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
+| Tests | **367** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
 
@@ -237,7 +237,7 @@ python scripts/deploy_space.py <hf-user>/nexusgate      # add --private to try i
 | `POST /v1/agents/research` | key / JWT | Multi-step agent: plans searches, drafts a cited answer, critiques and revises it; reports every transition and what the run cost |
 | `GET /v1/agents/graph` | key / JWT | The agent's nodes, allowed transitions and a Mermaid diagram |
 | `POST/GET/DELETE /v1/admin/keys` | admin token | Issue, list, revoke API keys |
-| `GET /v1/admin/providers` | admin token | Route table + live circuit-breaker states |
+| `GET /v1/admin/providers` | admin token | Route table, this replica's circuit-breaker states, and the cluster-wide view (open circuits, cooldown remaining, pooled failures) |
 | `GET /v1/admin/routes` | admin token | The live route table, plus any canary and how it is faring |
 | `PUT /v1/admin/routes/canary` | admin token | Send a share of traffic to a candidate route table |
 | `POST /v1/admin/routes/canary/weight` | admin token | Turn the canary's share up or down |
@@ -259,7 +259,15 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 
 **Not every error triggers fallback.** Timeouts, 429s, 5xx and auth failures move on to the next deployment. A provider-side **400** fails fast: another vendor would reject the same malformed request, so the chain isn't burned. It also doesn't count against the breaker, because a bad request isn't an outage.
 
-**Circuit breaker.** A deployment opens after N consecutive failures. After the cooldown it goes half-open and lets **exactly one** probe through; the probe's result either closes the breaker or reopens it for a fresh cooldown. State is kept per replica on purpose. Each replica learns about an outage within N requests, which is cheaper than a Redis round-trip on every call.
+**Circuit breaker.** A deployment opens after N consecutive failures. After the cooldown it goes half-open and lets **exactly one** probe through; the probe's result either closes the breaker or reopens it for a fresh cooldown.
+
+**Breaker state is shared across replicas, without a Redis round-trip per request.** The in-process breakers stay the hot path — skipping a dead deployment is a dictionary lookup — while [`app/gateway/breaker_cluster.py`](app/gateway/breaker_cluster.py) keeps them in agreement through three self-expiring keys.
+- **Why bother:** with 2 replicas and a threshold of 3, a provider failing every other request has each replica counting 2 failures, neither opening its circuit, and six users getting errors. Pooled, the third failure anywhere opens it everywhere. A pod that starts during an outage inherits the open circuit instead of rediscovering it.
+- **One replica probes, not all of them.** When the cooldown expires, whoever wins `SET NX` on the probe key sends the one probe; the others stay open until the next read tells them the answer. Otherwise every replica probes a provider that is probably still down.
+- **The open key's TTL *is* the cooldown**, and pooled failures expire on their own, so there is no state to clean up and a failure from an idle hour ago cannot push a healthy deployment over the threshold.
+- **Reads are amortised:** one pipelined read per refresh window (1 s) covers a whole fallback chain, not one read per request — the same trade as the fault table.
+- **Redis is never in the way.** Every call is best-effort: if it cannot be reached, the local breakers keep their own counts and timers, which is exactly how the gateway behaved before any of this existed. A probe is taken rather than missed, because a circuit that never closes is worse than one extra probe.
+- `GET /v1/admin/providers` shows both views: this replica's state, and the cluster's with the cooldown remaining. `NEXUSGATE_BREAKER_SHARED=false` turns it off for a single-replica deployment.
 
 **The cache matches only the last user message semantically.** Tenant, route, temperature, max_tokens, system prompt and earlier turns are all hashed into an exact-match namespace. That way "answer in French" and "answer in English" can never share a cached answer, however close their embeddings are, and tenant A can never be served tenant B's response. Entries have a TTL, each namespace has a size cap, and there are purge endpoints. If the cache fails, requests are served uncached instead of erroring.
 
@@ -368,7 +376,8 @@ app/
   core/           config, auth (API keys + JWT), rate limiting, metering, embeddings,
                   bounded inference, logging, DI
   gateway/        provider adapters (whole + streaming), routing config, canary rollouts,
-                  circuit breaker, router, pricing, fault injection, chat service
+                  circuit breaker + its cluster-wide state, router, pricing, fault injection,
+                  chat service
   cache/          semantic cache (bruteforce / RediSearch indexes)
   rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
   agents/         the state-graph engine, the research agent's nodes, prompts and run state
@@ -408,10 +417,10 @@ Eight weekly milestones, following the project spec:
 | — | Beyond the roadmap: autoscaling tied to queue depth (§10) | ✅ [HPAs](infra/k8s/base/autoscaling.yaml) on CPU (API) and ingestion queue depth (workers) |
 | — | Beyond the roadmap: canary rollout of provider changes (§10) | ✅ [`app/gateway/rollout.py`](app/gateway/rollout.py): weighted traffic split with automatic rollback |
 | — | Beyond the roadmap: streaming responses | ✅ SSE with fallback decided before the first token, and a breaker that waits for the whole stream |
+| — | Beyond the roadmap: circuit state shared across replicas | ✅ [`app/gateway/breaker_cluster.py`](app/gateway/breaker_cluster.py): pooled failures, adopted state, one probe per cooldown |
 
 ## What I'd do with more time
 
-- Shared circuit-breaker state across replicas.
 - Load-test the streaming path: the numbers above are for whole responses, and time to first token
   under load is the figure a streaming client actually feels.
 - Hybrid retrieval (BM25 + dense), and an LLM-judged eval of answer faithfulness.

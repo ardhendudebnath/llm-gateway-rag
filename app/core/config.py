@@ -92,6 +92,12 @@ class Settings(BaseSettings):
     provider_timeout_seconds: float = 30.0
     breaker_failure_threshold: int = 3
     breaker_cooldown_seconds: float = 30.0
+    # Circuit state shared across replicas (app/gateway/breaker_cluster.py). Off means each replica
+    # decides alone, which needs failure_threshold failures *per replica* to stop a dead provider.
+    breaker_shared: bool = True
+    breaker_refresh_seconds: float = Field(default=1.0, gt=0)  # how fast a replica adopts the state
+    breaker_failure_window_seconds: float = Field(default=60.0, gt=0)  # pooled failures expire
+    breaker_probe_seconds: float = Field(default=5.0, gt=0)  # one replica's claim on the probe
     # Chaos testing: lets an admin make a deployment fail on demand. Off unless asked for.
     fault_injection_enabled: bool = False
 
