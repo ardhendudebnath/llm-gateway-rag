@@ -113,7 +113,18 @@ failed attempt and the fallback that answered.</p>
 <p>A fictional engineering handbook is pre-loaded. Answers come with numbered citations;
 <code>/v1/rag/search</code> shows the reranked passages.</p>
 
-<h2>4. Let the agent work</h2>
+<h2>4. Stream it, and watch the fallback stay invisible</h2>
+<pre>curl -N -s {base}/v1/chat/completions \\
+  -H "Authorization: Bearer {key}" \\
+  -H "Content-Type: application/json" \\
+  -d '{{"model": "chaos", "stream": true, "cache": false,
+       "messages": [{{"role": "user", "content": "explain backpressure"}}]}}'</pre>
+<p>Server-sent events, in OpenAI's format, so any SDK's <code>stream=True</code> works. The
+<code>chaos</code> route's primary fails before it can send a token, so the fallback answers and the
+client never sees the difference — the last chunk carries the usage, the cost, the time to first
+token and the attempts it took.</p>
+
+<h2>5. Let the agent work</h2>
 <pre>curl -s {base}/v1/agents/research \\
   -H "Authorization: Bearer {key}" \\
   -H "Content-Type: application/json" \\

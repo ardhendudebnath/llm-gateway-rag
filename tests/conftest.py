@@ -1,5 +1,6 @@
 """Shared fixtures. Nothing here touches the network or a real Redis."""
 
+import asyncio
 from collections import defaultdict, deque
 from contextlib import contextmanager
 
@@ -13,24 +14,41 @@ from app.core.container import build_services
 from app.core.embeddings import HashingEmbedder
 from app.gateway.providers import ProviderError
 from app.gateway.routing_config import Deployment, RoutingConfig
-from app.gateway.schemas import ChatRequest, ProviderResponse, Usage
+from app.gateway.schemas import ChatRequest, ProviderResponse, StreamDelta, Usage
 from app.main import create_app
 from app.observability.tracing import ChatTrace
 
 ADMIN_TOKEN = "test-admin-token"
 
 
+class StreamBreak:
+    """Queued outcome: stream `after` chunks, then fail — the case where fallback is too late."""
+
+    def __init__(self, after: int = 1, retryable: bool = True):
+        self.after = after
+        self.retryable = retryable
+
+
+class Stall:
+    """Queued outcome: yield `after` chunks and then never produce another one."""
+
+    def __init__(self, after: int = 0):
+        self.after = after
+
+
 class ScriptedProvider:
-    """Deterministic fake provider.
+    """Deterministic fake provider, for both the whole-response and the streaming path.
 
     ``script(name, *outcomes)`` queues outcomes for a deployment: an Exception instance is raised,
-    anything else is ignored and a normal response is returned. With an empty queue every call
-    succeeds. ``calls`` records deployment names in call order.
+    a ``StreamBreak`` or ``Stall`` shapes a stream, anything else is ignored and a normal response
+    is returned. With an empty queue every call succeeds. ``calls`` records deployment names in
+    call order, and ``closed`` records the streams the router closed after itself.
     """
 
     def __init__(self):
         self._scripts: dict[str, deque] = defaultdict(deque)
         self.calls: list[str] = []
+        self.closed: list[str] = []
 
     def script(self, deployment: str, *outcomes) -> None:
         self._scripts[deployment].extend(outcomes)
@@ -50,8 +68,52 @@ class ScriptedProvider:
         if callable(outcome):
             await outcome()
         return ProviderResponse(
-            content=f"{deployment.name}: {request.messages[-1].content}",
+            content=self._answer(deployment, request),
             usage=Usage(prompt_tokens=100, completion_tokens=50),
+            model=deployment.model,
+        )
+
+    async def stream(self, deployment: Deployment, request: ChatRequest):
+        self.calls.append(deployment.name)
+        queue = self._scripts[deployment.name]
+        outcome = queue.popleft() if queue else None
+        if isinstance(outcome, BaseException):
+            raise outcome  # never produced a token, so the router can still fall back
+        words = self._answer(deployment, request).split(" ")
+        try:
+            for i, word in enumerate(words):
+                if isinstance(outcome, Stall) and i == outcome.after:
+                    await asyncio.Event().wait()  # a provider that stops talking mid-answer
+                if isinstance(outcome, StreamBreak) and i == outcome.after:
+                    raise ProviderError(
+                        f"{deployment.name} died mid-stream",
+                        retryable=outcome.retryable,
+                        status_code=503,
+                    )
+                yield StreamDelta(content=word if i == 0 else f" {word}", model=deployment.model)
+            yield StreamDelta(
+                finish_reason="stop",
+                usage=Usage(prompt_tokens=100, completion_tokens=50),
+                model=deployment.model,
+            )
+        finally:
+            self.closed.append(deployment.name)
+
+    @staticmethod
+    def _answer(deployment: Deployment, request: ChatRequest) -> str:
+        return f"{deployment.name}: {request.messages[-1].content}"
+
+
+class WholeResponseProvider:
+    """A provider adapter with no `stream` method at all, to exercise the synthesized path."""
+
+    def __init__(self, content: str = "one two three four five six seven eight"):
+        self.content = content
+
+    async def complete(self, deployment: Deployment, request: ChatRequest) -> ProviderResponse:
+        return ProviderResponse(
+            content=self.content,
+            usage=Usage(prompt_tokens=7, completion_tokens=8),
             model=deployment.model,
         )
 

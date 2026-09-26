@@ -92,6 +92,18 @@ RAG_EMPTY_RETRIEVALS = Counter(
     "nexusgate_rag_empty_retrievals_total", "Answer requests where no passage matched (no LLM call)"
 )
 
+STREAMS = Counter(
+    "nexusgate_streams_total",
+    "Streamed completions by how they ended",
+    ["outcome"],  # completed | interrupted | client_gone | cache_replay
+)
+STREAM_TTFT = Histogram(
+    "nexusgate_stream_ttft_seconds",
+    "Time to first token, per deployment — the latency a streaming client actually feels",
+    ["deployment"],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0),
+)
+
 ROLLOUT_REQUESTS = Counter(
     "nexusgate_rollout_requests_total",
     "Chat requests by which route table served them",

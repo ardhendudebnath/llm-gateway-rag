@@ -10,6 +10,7 @@ cache entries and document it creates, and exits non-zero on the first failed ch
 """
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -96,11 +97,50 @@ def check_gateway(api: httpx.Client, admin_token: str, job_timeout: float = 60) 
         check("nexusgate_http_requests_total" in metrics, "/metrics lacks nexusgate_ metrics")
         ok("/metrics exports nexusgate_* series")
 
+        check_streaming(api, key)
         check_canary(api, admin, key)
         check_rag(api, auth, job_timeout)
     finally:
         api.delete("/v1/cache", headers=auth)
         api.delete(f"/v1/admin/keys/{key_id}", headers=admin)
+
+
+def check_streaming(api: httpx.Client, key: str) -> None:
+    """Stream a completion end to end, and read the footer the last chunk carries."""
+    chunks = []
+    with api.stream(
+        "POST",
+        "/v1/chat/completions",
+        headers={"Authorization": f"Bearer {key}"},
+        json={
+            "model": "mock",
+            "stream": True,
+            "cache": False,
+            "messages": [{"role": "user", "content": "stream me a sentence"}],
+        },
+    ) as resp:
+        check(resp.status_code == 200, f"stream: {resp.status_code}")
+        check(
+            resp.headers["content-type"].startswith("text/event-stream"),
+            f"stream content-type: {resp.headers.get('content-type')}",
+        )
+        done = False
+        for line in resp.iter_lines():
+            if not line.startswith("data: "):
+                continue
+            payload = line.removeprefix("data: ")
+            if payload == "[DONE]":
+                done = True
+                break
+            chunks.append(json.loads(payload))
+    check(done, "stream ended without [DONE]")
+    check(len(chunks) > 2, f"expected several chunks, got {len(chunks)}")
+    text = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
+    check("stream me a sentence" in text, f"streamed text looks wrong: {text!r}")
+    meta = chunks[-1].get("nexusgate") or {}
+    check(meta.get("ttft_ms", 0) > 0, f"no time-to-first-token in the footer: {meta}")
+    check(chunks[-1].get("usage", {}).get("total_tokens", 0) > 0, "no usage on the last chunk")
+    ok(f"streaming: {len(chunks)} chunks, ttft {meta['ttft_ms']:.0f} ms, usage reported")
 
 
 # A candidate route table: one deployment, a mock priced differently from the live `mock` route.

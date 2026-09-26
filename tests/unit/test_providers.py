@@ -54,6 +54,66 @@ async def test_litellm_error_classification(monkeypatch, exc, retryable):
     assert info.value.retryable is retryable
 
 
+async def test_litellm_streams_deltas_and_asks_for_usage(monkeypatch):
+    real = litellm.acompletion
+    seen = {}
+
+    async def offline(**kwargs):
+        seen.update(kwargs)
+        return await real(**kwargs, mock_response="general kenobi")
+
+    monkeypatch.setattr(litellm, "acompletion", offline)
+    deltas = [d async for d in LiteLLMProvider().stream(DEP, REQ)]
+
+    assert "".join(d.content for d in deltas) == "general kenobi"
+    assert seen["stream"] is True
+    # Without this the gateway would have to estimate the tokens it bills for a streamed request.
+    assert seen["stream_options"] == {"include_usage": True}
+    # LiteLLM reports the two facts in different chunks: `finish_reason` on the last content chunk
+    # and usage in a final one with no choices at all, which is why the router absorbs them apart.
+    assert [d.finish_reason for d in deltas].count("stop") == 1
+    assert deltas[-1].usage.completion_tokens > 0 and deltas[-1].finish_reason is None
+
+
+@pytest.mark.parametrize(
+    ("exc", "retryable"),
+    [
+        (litellm.exceptions.ServiceUnavailableError("503", "openai", "gpt-test"), True),
+        (litellm.exceptions.BadRequestError("bad", "gpt-test", "openai"), False),
+    ],
+)
+async def test_litellm_stream_errors_are_classified_the_same_way(monkeypatch, exc, retryable):
+    async def boom(**_):
+        raise exc
+
+    monkeypatch.setattr(litellm, "acompletion", boom)
+    with pytest.raises(ProviderError) as info:
+        async for _ in LiteLLMProvider().stream(DEP, REQ):
+            pass
+    assert info.value.retryable is retryable
+
+
+async def test_mock_provider_streams_word_by_word():
+    dep = Deployment(name="m", provider="mock", model="mock-1", options={"latency_ms": 0})
+    deltas = [d async for d in MockProvider().stream(dep, REQ)]
+
+    assert "".join(d.content for d in deltas) == "[m] You said: hello there"
+    assert len(deltas) > 2, "a stream, not one lump"
+    assert deltas[-1].usage.completion_tokens == 5
+
+
+async def test_mock_provider_can_break_mid_stream():
+    dep = Deployment(
+        name="m",
+        provider="mock",
+        model="mock-1",
+        options={"latency_ms": 0, "stream_failure_rate": 1.0},
+    )
+    with pytest.raises(ProviderError):
+        async for _ in MockProvider(random.Random(0)).stream(dep, REQ):
+            pass
+
+
 async def test_mock_provider_echoes_and_counts_tokens():
     dep = Deployment(name="m", provider="mock", model="mock-1", options={"latency_ms": 0})
     resp = await MockProvider().complete(dep, REQ)

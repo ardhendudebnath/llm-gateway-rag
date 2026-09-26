@@ -53,7 +53,7 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 48 labelled questions | **recall@5 1.000, MRR 0.990** |
-| Tests | **300** (unit, integration, provider contracts), **96% coverage**, no network access, no API spend |
+| Tests | **349** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
 
@@ -153,6 +153,11 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://localhost:8000/v1", api_key="ng_...")
 client.chat.completions.create(model="mock", messages=[{"role": "user", "content": "hi"}])
+
+for chunk in client.chat.completions.create(  # streaming, same as any OpenAI endpoint
+    model="mock", messages=[{"role": "user", "content": "hi"}], stream=True
+):
+    print(chunk.choices[0].delta.content or "", end="")
 ```
 
 ### 3. Local development (no cluster)
@@ -218,6 +223,7 @@ python scripts/deploy_space.py <hf-user>/nexusgate      # add --private to try i
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `POST /v1/chat/completions` | key / JWT | OpenAI-shaped chat; response adds a `nexusgate` block (deployment, attempts, cost, cache hit) |
+| ↳ with `"stream": true` | key / JWT | Server-sent events of `chat.completion.chunk`, ending in `data: [DONE]`; the last chunk carries usage and the `nexusgate` footer (time to first token, cost, attempts, and `interrupted` if the stream broke) |
 | `GET /v1/models` | key / JWT | Route aliases usable as `model` |
 | `POST /v1/auth/token` | API key | Exchange a key for a short-lived JWT |
 | `GET /v1/usage?days=7` | key / JWT | Daily requests, tokens, $ spent, $ saved by cache, and cost per 1,000 split by cache hit / paid provider / self-hosted |
@@ -286,6 +292,30 @@ Every error uses one envelope: `{"error": {"type": ..., "message": ...}}`. A 429
 - **Reranking has a 250 ms wait budget**, because it is optional work: waiting for it cost more than skipping it.
 - **All of it is counted and alerted on:** `nexusgate_degraded_total`, `nexusgate_inference_shed_total`, and the `NexusGateSheddingLoad` alert.
 
+**Streaming makes fallback a deadline, not a policy.** With `stream: true` the gateway sends
+server-sent events in OpenAI's format ([`app/api/chat.py`](app/api/chat.py)), and that changes what
+the router can promise. You cannot un-send a token, so every fallback decision has to be made before
+the first one goes out — [`open_stream`](app/gateway/router.py) returns only once some deployment has
+actually produced a token, and after that the choice is locked in.
+- **The timeout that matters is time to first token.** A generation may legitimately run for a
+  minute; waiting for it to finish before deciding whether the provider is alive would be useless.
+  The deployment timeout applies to the first token, and again between chunks, so a provider that
+  goes quiet mid-answer is cut off instead of hanging the client.
+- **A break after the first token is reported, not retried.** Falling back then would append a
+  second answer to a partial one. The partial text stands, the last chunk says
+  `nexusgate.interrupted`, and the stream still ends with `data: [DONE]` so clients terminate
+  cleanly. It is also billed — for the words that were actually sent, from a running estimate.
+- **A first token is not a success.** The breaker is settled when the stream *completes*: a
+  deployment that reliably answers one token and then dies would otherwise reset its own failure
+  count on every attempt and never trip.
+- **Failures before anything is sent keep their HTTP status.** The endpoint pulls the first chunk
+  before the response exists, so a dead chain is still a 503 with `Retry-After` and a rejected
+  prompt is still a 400 — not a 200 carrying an error in the body.
+- **Cache hits stream too**, chunked at the gateway, so a client cannot tell a replay from a
+  generation apart from `cached: true` and the cost it did not pay. Partial answers are never cached.
+- **A provider that cannot stream still serves streaming clients**: its answer is chunked here and
+  flagged `synthesized`, rather than the request being refused.
+
 **A route change is a deployment, so it rolls out like one.** Swapping a provider, reordering a fallback chain or putting a cheaper model in front is a production change that happens to be configuration. [`app/gateway/rollout.py`](app/gateway/rollout.py) ships one to a percentage of traffic, with no restart: `PUT /v1/admin/routes/canary` publishes a candidate table at a weight, `GET /v1/admin/routes` shows how it is doing, and it is then promoted or withdrawn.
 - **It withdraws itself.** Once the canary has served `NEXUSGATE_CANARY_MIN_REQUESTS` (20), an error rate above `NEXUSGATE_CANARY_MAX_ERROR_RATE` (10%) drops its weight to 0 and records why. A canary that needs someone watching a dashboard is just a slower outage.
 - **The counters are pooled in Redis**, not per replica: with 2 pods each judging the canary on its own handful of requests, neither would reach a sample worth acting on. The same read gives every replica the current table within a second.
@@ -337,8 +367,8 @@ app/
   api/            FastAPI routers: chat, rag, agents, account, admin, alerts, health
   core/           config, auth (API keys + JWT), rate limiting, metering, embeddings,
                   bounded inference, logging, DI
-  gateway/        provider adapters, routing config, canary rollouts, circuit breaker,
-                  router, pricing, fault injection, chat service
+  gateway/        provider adapters (whole + streaming), routing config, canary rollouts,
+                  circuit breaker, router, pricing, fault injection, chat service
   cache/          semantic cache (bruteforce / RediSearch indexes)
   rag/            parsing, chunking, Qdrant store, reranking, retrieval, ingestion, grounded answers
   agents/         the state-graph engine, the research agent's nodes, prompts and run state
@@ -377,11 +407,13 @@ Eight weekly milestones, following the project spec:
 | — | Beyond the roadmap: the agent layer the spec lists as a stretch feature (§4.7) | ✅ [`app/agents`](app/agents): an explicit state graph, published as a diagram |
 | — | Beyond the roadmap: autoscaling tied to queue depth (§10) | ✅ [HPAs](infra/k8s/base/autoscaling.yaml) on CPU (API) and ingestion queue depth (workers) |
 | — | Beyond the roadmap: canary rollout of provider changes (§10) | ✅ [`app/gateway/rollout.py`](app/gateway/rollout.py): weighted traffic split with automatic rollback |
+| — | Beyond the roadmap: streaming responses | ✅ SSE with fallback decided before the first token, and a breaker that waits for the whole stream |
 
 ## What I'd do with more time
 
 - Shared circuit-breaker state across replicas.
-- Streaming (SSE) responses.
+- Load-test the streaming path: the numbers above are for whole responses, and time to first token
+  under load is the figure a streaming client actually feels.
 - Hybrid retrieval (BM25 + dense), and an LLM-judged eval of answer faithfulness.
 - An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. It needs a real provider, so the offline test suite can't answer it.
 - A model-comparison harness that feeds back into route ordering.

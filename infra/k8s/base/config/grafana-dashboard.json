@@ -263,6 +263,26 @@
     },
     {
       "type": "timeseries",
+      "title": "Streaming: time to first token, and how streams end",
+      "description": "TTFT p95 per deployment is the latency a streaming client feels. 'interrupted' means a stream broke after its first token, where no fallback was possible (app/gateway/router.py).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (deployment, le) (rate(nexusgate_stream_ttft_seconds_bucket[5m])))",
+          "legendFormat": "{{deployment}} ttft p95"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (outcome) (rate(nexusgate_streams_total[5m]))",
+          "legendFormat": "{{outcome}}/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
       "title": "Route rollout: stable vs canary",
       "description": "Which route table served each request, and how the canary is faring. A canary whose error rate passes its budget withdraws itself (app/gateway/rollout.py).",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
