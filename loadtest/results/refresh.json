@@ -1,0 +1,250 @@
+{
+  "label": "refresh",
+  "generated_at": "2026-09-27T07:23:50+00:00",
+  "slo_p95_ms": 500,
+  "duration_s": 45,
+  "stream_weight": 0,
+  "levels": [
+    {
+      "users": 25,
+      "api_replicas": 2,
+      "requests": 886,
+      "rps": 19.7,
+      "p50_ms": 91.0,
+      "p95_ms": 1500.0,
+      "p99_ms": 1800.0,
+      "fail_pct": 0.0,
+      "by_kind": {
+        "chat: cache hit": {
+          "requests": 307,
+          "rps": 6.8,
+          "p50_ms": 29.0,
+          "p95_ms": 51.0,
+          "p99_ms": 88.0,
+          "fail_pct": 0.0
+        },
+        "chat: provider call": {
+          "requests": 327,
+          "rps": 7.3,
+          "p50_ms": 92.0,
+          "p95_ms": 100.0,
+          "p99_ms": 120.0,
+          "fail_pct": 0.0
+        },
+        "rag: answer": {
+          "requests": 92,
+          "rps": 2.0,
+          "p50_ms": 390.0,
+          "p95_ms": 1800.0,
+          "p99_ms": 2300.0,
+          "fail_pct": 0.0
+        },
+        "rag: search": {
+          "requests": 160,
+          "rps": 3.6,
+          "p50_ms": 360.0,
+          "p95_ms": 1800.0,
+          "p99_ms": 2100.0,
+          "fail_pct": 0.0
+        }
+      }
+    },
+    {
+      "users": 50,
+      "api_replicas": 2,
+      "requests": 1850,
+      "rps": 40.6,
+      "p50_ms": 92.0,
+      "p95_ms": 1300.0,
+      "p99_ms": 2000.0,
+      "fail_pct": 0.0,
+      "by_kind": {
+        "chat: cache hit": {
+          "requests": 654,
+          "rps": 14.4,
+          "p50_ms": 36.0,
+          "p95_ms": 86.0,
+          "p99_ms": 200.0,
+          "fail_pct": 0.0
+        },
+        "chat: provider call": {
+          "requests": 700,
+          "rps": 15.4,
+          "p50_ms": 94.0,
+          "p95_ms": 120.0,
+          "p99_ms": 160.0,
+          "fail_pct": 0.0
+        },
+        "rag: answer": {
+          "requests": 182,
+          "rps": 4.0,
+          "p50_ms": 380.0,
+          "p95_ms": 1900.0,
+          "p99_ms": 2200.0,
+          "fail_pct": 0.0
+        },
+        "rag: search": {
+          "requests": 314,
+          "rps": 6.9,
+          "p50_ms": 300.0,
+          "p95_ms": 1900.0,
+          "p99_ms": 2100.0,
+          "fail_pct": 0.0
+        }
+      }
+    },
+    {
+      "users": 100,
+      "api_replicas": 2,
+      "requests": 3661,
+      "rps": 78.5,
+      "p50_ms": 110.0,
+      "p95_ms": 580.0,
+      "p99_ms": 2300.0,
+      "fail_pct": 0.0,
+      "by_kind": {
+        "chat: cache hit": {
+          "requests": 1322,
+          "rps": 28.4,
+          "p50_ms": 58.0,
+          "p95_ms": 400.0,
+          "p99_ms": 620.0,
+          "fail_pct": 0.0
+        },
+        "chat: provider call": {
+          "requests": 1336,
+          "rps": 28.7,
+          "p50_ms": 100.0,
+          "p95_ms": 260.0,
+          "p99_ms": 370.0,
+          "fail_pct": 0.0
+        },
+        "rag: answer": {
+          "requests": 357,
+          "rps": 7.7,
+          "p50_ms": 420.0,
+          "p95_ms": 2100.0,
+          "p99_ms": 3300.0,
+          "fail_pct": 0.0
+        },
+        "rag: search": {
+          "requests": 646,
+          "rps": 13.9,
+          "p50_ms": 340.0,
+          "p95_ms": 2200.0,
+          "p99_ms": 3100.0,
+          "fail_pct": 0.0
+        }
+      }
+    },
+    {
+      "users": 200,
+      "api_replicas": 2,
+      "requests": 3561,
+      "rps": 77.2,
+      "p50_ms": 1600.0,
+      "p95_ms": 3500.0,
+      "p99_ms": 5200.0,
+      "fail_pct": 0.2,
+      "by_kind": {
+        "chat: cache hit": {
+          "requests": 1327,
+          "rps": 28.8,
+          "p50_ms": 2000.0,
+          "p95_ms": 3400.0,
+          "p99_ms": 3700.0,
+          "fail_pct": 0.0
+        },
+        "chat: provider call": {
+          "requests": 1273,
+          "rps": 27.6,
+          "p50_ms": 260.0,
+          "p95_ms": 680.0,
+          "p99_ms": 1200.0,
+          "fail_pct": 0.0
+        },
+        "rag: answer": {
+          "requests": 303,
+          "rps": 6.6,
+          "p50_ms": 2500.0,
+          "p95_ms": 4500.0,
+          "p99_ms": 6300.0,
+          "fail_pct": 0.66
+        },
+        "rag: search": {
+          "requests": 658,
+          "rps": 14.3,
+          "p50_ms": 2300.0,
+          "p95_ms": 4700.0,
+          "p99_ms": 5900.0,
+          "fail_pct": 0.76
+        }
+      }
+    },
+    {
+      "users": 400,
+      "api_replicas": 2,
+      "requests": 6722,
+      "rps": 138.4,
+      "p50_ms": 1600.0,
+      "p95_ms": 3900.0,
+      "p99_ms": 5400.0,
+      "fail_pct": 13.0,
+      "by_kind": {
+        "chat: cache hit": {
+          "requests": 2458,
+          "rps": 50.6,
+          "p50_ms": 2700.0,
+          "p95_ms": 3900.0,
+          "p99_ms": 4500.0,
+          "fail_pct": 0.0
+        },
+        "chat: provider call": {
+          "requests": 2435,
+          "rps": 50.1,
+          "p50_ms": 600.0,
+          "p95_ms": 2300.0,
+          "p99_ms": 2600.0,
+          "fail_pct": 0.0
+        },
+        "rag: answer": {
+          "requests": 607,
+          "rps": 12.5,
+          "p50_ms": 2000.0,
+          "p95_ms": 5100.0,
+          "p99_ms": 6700.0,
+          "fail_pct": 48.27
+        },
+        "rag: search": {
+          "requests": 1222,
+          "rps": 25.2,
+          "p50_ms": 2300.0,
+          "p95_ms": 4200.0,
+          "p99_ms": 5900.0,
+          "fail_pct": 47.55
+        }
+      }
+    }
+  ],
+  "ceiling": null,
+  "usage": {
+    "requests": 13403,
+    "cache_hits": 4882,
+    "cache_hit_rate": 0.364,
+    "cost_usd": 1.089862,
+    "cost_saved_usd": 0.266574,
+    "cost_per_1k_requests_usd": 0.081315,
+    "saved_per_1k_requests_usd": 0.019889,
+    "cost_per_1k_by_kind": {
+      "cache_hit": 0.0,
+      "provider_call": 0.127903,
+      "self_hosted": 0.0,
+      "blended": 0.081315,
+      "requests": {
+        "cache_hit": 4882,
+        "provider_call": 8521,
+        "self_hosted": 0
+      }
+    }
+  }
+}

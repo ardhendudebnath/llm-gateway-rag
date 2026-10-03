@@ -48,13 +48,17 @@ class Api:
         return resp
 
 
-def setup(base: str, admin_token: str, corpus: Path) -> tuple[str, str]:
+def setup(base: str, admin_token: str, corpus: Path, label: str = "run") -> tuple[str, str]:
+    # A tenant per run, not a shared "loadtest" one. Documents are stored per tenant and searches
+    # are tenant-filtered, so a shared tenant accumulated every corpus ever ingested: a later run
+    # searched the union of them and was quietly measuring a bigger index than it had loaded.
+    tenant = f"loadtest-{label}-{int(time.time())}"[:63]
     admin = Api(base, {"X-Admin-Token": admin_token})
     created = admin.call(
         "POST",
         "/v1/admin/keys",
         json={
-            "tenant_id": "loadtest",
+            "tenant_id": tenant,
             "name": f"locust-{int(time.time())}",
             "rate_limit_capacity": 1_000_000,
             "rate_limit_refill_per_sec": 1_000_000,
@@ -87,11 +91,44 @@ def setup(base: str, admin_token: str, corpus: Path) -> tuple[str, str]:
             "/v1/chat/completions",
             json={"model": "mock", "messages": [{"role": "user", "content": question}]},
         )
-    print(f"setup: key {key_id}, {len(job_ids)} documents ingested, cache warmed", flush=True)
+    print(
+        f"setup: key {key_id}, tenant {tenant}, {len(job_ids)} documents ingested, cache warmed",
+        flush=True,
+    )
     return key, key_id
 
 
-def run_level(base: str, key: str, users: int, duration: int, prefix: Path) -> dict:
+def api_replicas(prometheus: str | None) -> int | None:
+    """How many API pods Prometheus can see, right now.
+
+    Recorded per level because it is the single biggest thing that makes two runs incomparable: the
+    same code on the same laptop served 89.8 req/s at 200 users with six pods contending for the
+    node's CPU and 153.7 with two. A result that does not say which was which cannot be read later.
+    """
+    if not prometheus:
+        return None
+    try:
+        resp = requests.get(
+            f"{prometheus.rstrip('/')}/api/v1/query",
+            params={"query": 'count(up{job="nexusgate-api"} == 1)'},
+            timeout=10,
+        )
+        result = resp.json()["data"]["result"]
+        return int(float(result[0]["value"][1])) if result else 0
+    except Exception as e:  # a missing Prometheus must not fail the load test
+        print(f"  (could not read the API replica count: {type(e).__name__}: {e})", flush=True)
+        return None
+
+
+def run_level(
+    base: str,
+    key: str,
+    users: int,
+    duration: int,
+    prefix: Path,
+    stream_weight: int = 0,
+    prometheus: str | None = None,
+) -> dict:
     cmd = [
         sys.executable, "-m", "locust",
         "-f", str(HERE / "locustfile.py"),
@@ -101,7 +138,11 @@ def run_level(base: str, key: str, users: int, duration: int, prefix: Path) -> d
     ]  # fmt: skip
     subprocess.run(
         cmd,
-        env={**os.environ, "NEXUSGATE_LOADTEST_KEY": key},
+        env={
+            **os.environ,
+            "NEXUSGATE_LOADTEST_KEY": key,
+            "NEXUSGATE_LOADTEST_STREAM_WEIGHT": str(stream_weight),
+        },
         capture_output=True,
         check=False,
     )
@@ -123,6 +164,7 @@ def run_level(base: str, key: str, users: int, duration: int, prefix: Path) -> d
         Path(f"{prefix}{suffix}").unlink(missing_ok=True)
     return {
         "users": users,
+        "api_replicas": api_replicas(prometheus),  # measured after the level, under this load
         **summarise(rows["Aggregated"]),
         "by_kind": {name: summarise(r) for name, r in rows.items() if name != "Aggregated"},
     }
@@ -152,8 +194,26 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://api:8000")
     parser.add_argument("--admin-token", default=os.environ.get("NEXUSGATE_ADMIN_TOKEN"))
     parser.add_argument("--levels", type=int, nargs="+", default=[25, 50, 100, 200, 400])
-    parser.add_argument("--duration", type=int, default=45, help="seconds per level")
+    parser.add_argument("--duration", type=int, default=60, help="seconds per level")
+    parser.add_argument(
+        "--warmup-seconds",
+        type=int,
+        default=30,
+        help="a discarded level at the first load, so the first measured one is not cold; 0 skips",
+    )
     parser.add_argument("--slo-ms", type=float, default=500, help="p95 latency objective")
+    parser.add_argument(
+        "--prometheus-url",
+        default="http://prometheus:9090",
+        help="used only to record how many API pods served each level; pass '' to skip",
+    )
+    parser.add_argument(
+        "--stream-weight",
+        type=int,
+        default=0,
+        help="weight of streamed chat requests in the mix (0 keeps the mix comparable with the "
+        "runs already in results/; 4 matches the other chat tasks)",
+    )
     parser.add_argument("--label", default="run")
     parser.add_argument("--corpus", type=Path, default=HERE.parent / "eval" / "corpus")
     parser.add_argument("--results-dir", type=Path, default=HERE / "results")
@@ -162,9 +222,26 @@ def main() -> int:
         parser.error("--admin-token (or NEXUSGATE_ADMIN_TOKEN) is required")
 
     args.results_dir.mkdir(parents=True, exist_ok=True)
-    key, key_id = setup(args.base_url, args.admin_token, args.corpus)
+    key, key_id = setup(args.base_url, args.admin_token, args.corpus, args.label)
     levels = []
     try:
+        if args.warmup_seconds > 0:
+            # Discarded on purpose. Measured cold, the first level of a run is the worst one at
+            # every load: repeating 100/150/200 three times gave 78.8/111.7/149.6 on the first
+            # pass and 84.8/123.3/156.8 on the third. Without this, a run's first number is a
+            # measurement of ONNX sessions and connection pools starting up.
+            print(
+                f"warm-up: {args.warmup_seconds}s at {args.levels[0]} users (discarded)", flush=True
+            )
+            run_level(
+                args.base_url,
+                key,
+                args.levels[0],
+                args.warmup_seconds,
+                args.results_dir / f"{args.label}-warmup",
+                args.stream_weight,
+                None,
+            )
         for users in args.levels:
             level = run_level(
                 args.base_url,
@@ -172,12 +249,15 @@ def main() -> int:
                 users,
                 args.duration,
                 args.results_dir / f"{args.label}-{users}u",
+                args.stream_weight,
+                args.prometheus_url,
             )
             levels.append(level)
+            pods = level["api_replicas"]
             print(
                 f"{users:>4} users: {level['rps']:>6} req/s  p50 {level['p50_ms']:>5.0f} ms  "
                 f"p95 {level['p95_ms']:>5.0f} ms  p99 {level['p99_ms']:>5.0f} ms  "
-                f"errors {level['fail_pct']}%",
+                f"errors {level['fail_pct']}%" + (f"  api pods {pods}" if pods is not None else ""),
                 flush=True,
             )
         costs = usage(args.base_url, key)
@@ -193,6 +273,10 @@ def main() -> int:
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "slo_p95_ms": args.slo_ms,
         "duration_s": args.duration,
+        "warmup_seconds": args.warmup_seconds,
+        # Recorded because it changes the traffic mix: a run with streaming is not comparable with
+        # one without it, and a result file has to say which it was.
+        "stream_weight": args.stream_weight,
         "levels": levels,
         "ceiling": {"users": ceiling["users"], "rps": ceiling["rps"]} if ceiling else None,
         "usage": costs,

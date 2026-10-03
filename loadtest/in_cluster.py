@@ -110,12 +110,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--label", required=True)
     parser.add_argument("--script", default="run_load.py", choices=["run_load.py", "chaos.py"])
+    parser.add_argument(
+        "--corpus-dir",
+        type=Path,
+        default=CORPUS,
+        help="documents to ingest for RAG traffic. The default is the eval corpus, which has grown "
+        "since the first runs: RAG latency depends on how much text the reranker is handed, so "
+        "comparing runs across corpus versions compares fixtures as much as code",
+    )
     parser.add_argument("--timeout", type=int, default=1800, help="seconds to wait for the job")
     args, script_args = parser.parse_known_args()
     script_args = [a for a in script_args if a != "--"]
 
+    documents = sorted(args.corpus_dir.glob("*.md"))
+    if not documents:
+        raise SystemExit(f"no *.md in {args.corpus_dir}")
     apply_configmap("loadtest-scripts", sorted(HERE.glob("*.py")))
-    apply_configmap("loadtest-corpus", sorted(CORPUS.glob("*.md")))
+    apply_configmap("loadtest-corpus", documents)
+    print(f"corpus: {len(documents)} documents from {args.corpus_dir}", flush=True)
 
     name = f"loadtest-{args.label}".lower().replace("_", "-")[:52]
     kubectl("delete", "job", name, "--ignore-not-found", "--wait=true")

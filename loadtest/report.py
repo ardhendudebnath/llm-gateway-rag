@@ -8,6 +8,7 @@ the effect of each change is visible.
 
 import argparse
 import json
+import statistics
 import sys
 from pathlib import Path
 
@@ -29,6 +30,11 @@ def ceiling(run: dict) -> str:
 # meet it on this hardware even unloaded (see README), so results are also judged per class.
 CLASS_SLOS = {"chat": 500.0, "rag": 1000.0}
 
+# How long a whole stream takes is a generation length, not a latency: holding it to a 500 ms
+# objective would say a gateway that streams a long answer is failing. Time to first token is the
+# figure that belongs to the chat class, and it is measured under its own name.
+NOT_A_LATENCY = {"chat: stream complete"}
+
 
 def class_ceiling(run: dict, prefix: str) -> str:
     """Highest total throughput at which every request kind of a class meets its objective."""
@@ -39,7 +45,7 @@ def class_ceiling(run: dict, prefix: str) -> str:
         if all(
             k["p95_ms"] <= slo and k["fail_pct"] < 1
             for name, k in lv["by_kind"].items()
-            if name.startswith(prefix)
+            if name.startswith(prefix) and name not in NOT_A_LATENCY
         )
     ]
     if not passing:
@@ -49,7 +55,48 @@ def class_ceiling(run: dict, prefix: str) -> str:
 
 
 def by_users(run: dict) -> dict[int, dict]:
+    """The last level measured at each user count.
+
+    A run may repeat a level (`--levels 100 100 200 200`); `repetitions_section` is what reports
+    those properly. This keeps the side-by-side tables one row per load level.
+    """
     return {lv["users"]: lv for lv in run["levels"]}
+
+
+def repetitions_section(label: str, run: dict) -> list[str]:
+    """Per-level spread, when a run measured the same load more than once.
+
+    Beyond saturation this stack's throughput is not a single number: repeated 200-user levels on
+    one laptop ranged 66.8 to 120.1 req/s with identical code, which is wide enough to swamp the
+    effect of any change one might want to measure. A run that repeats its levels can say so.
+    """
+    groups: dict[int, list[dict]] = {}
+    for lv in run["levels"]:
+        groups.setdefault(lv["users"], []).append(lv)
+    if all(len(g) < 2 for g in groups.values()):
+        return []
+    lines = [
+        f"## Repeated levels (`{label}`)",
+        "",
+        f"The same load measured {max(len(g) for g in groups.values())} times, interleaved, at "
+        f"{run['duration_s']} s per level. Spread is (max - min) / median: where it is large, a "
+        "single sample is not a result.",
+        "",
+        "| Users | runs | req/s median | req/s range | spread | p95 median | p95 range | errors |",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for users, levels in sorted(groups.items()):
+        rps = sorted(lv["rps"] for lv in levels)
+        p95 = sorted(lv["p95_ms"] for lv in levels)
+        worst_errors = max(lv["fail_pct"] for lv in levels)
+        median_rps = statistics.median(rps)
+        spread = (rps[-1] - rps[0]) / median_rps if median_rps else 0
+        lines.append(
+            f"| {users} | {len(levels)} | {median_rps:.1f} | {rps[0]:.1f} to {rps[-1]:.1f} "
+            f"| {spread:.0%} | {statistics.median(p95):.0f} ms "
+            f"| {p95[0]:.0f} to {p95[-1]:.0f} ms | {worst_errors}% |"
+        )
+    return lines
 
 
 def comparison(runs: dict[str, dict], cell) -> list[str]:
@@ -106,6 +153,54 @@ def by_kind_lines(per_1k: dict | None) -> list[str]:
     return ["- Cost per 1,000 by kind:", *rows]
 
 
+TTFT = "chat: stream first token"
+WHOLE_STREAM = "chat: stream complete"
+
+
+def streaming_section(label: str, run: dict) -> list[str]:
+    """A run with streamed requests, reported on its own.
+
+    It cannot share the comparison columns above: adding a fifth request kind changes the traffic
+    mix, so its throughput is not the same measurement as a run without it.
+    """
+    slo = CLASS_SLOS["chat"]
+    levels = [lv for lv in run["levels"] if TTFT in lv["by_kind"]]
+    if not levels:
+        return []
+    lines = [
+        f"## Streaming (`{label}`)",
+        "",
+        f"A separate run whose mix includes streamed requests (weight {run.get('stream_weight')} "
+        "against 4 for each other chat kind), so its throughput is not comparable with the runs "
+        "above. Time to first token is what a streaming client feels; the whole-stream figure is "
+        "how long the generation took, which is not a latency to hold to an objective.",
+        "",
+        "| Users | streamed req/s | TTFT p50 | TTFT p95 | whole stream p50 | whole stream p95 "
+        "| errors |",
+        "|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for lv in levels:
+        ttft, whole = lv["by_kind"][TTFT], lv["by_kind"].get(WHOLE_STREAM, {})
+        lines.append(
+            f"| {lv['users']} | {ttft['rps']} | {ttft['p50_ms']:.0f} ms | {ttft['p95_ms']:.0f} ms "
+            f"| {whole.get('p50_ms', 0):.0f} ms | {whole.get('p95_ms', 0):.0f} ms "
+            f"| {ttft['fail_pct']}% |"
+        )
+    within = [lv for lv in levels if lv["by_kind"][TTFT]["p95_ms"] <= slo]
+    best = max(within, key=lambda lv: lv["rps"]) if within else None
+    lines += [
+        "",
+        f"- Highest load where time to first token kept p95 under {slo:.0f} ms: "
+        + (
+            f"**{best['users']} users** ({best['rps']} req/s over the whole mix, "
+            f"{best['by_kind'][TTFT]['rps']} of them streamed)"
+            if best
+            else "**none**"
+        ),
+    ]
+    return lines
+
+
 def chaos_section(chaos: dict) -> list[str]:
     t = chaos["timeline_s"]
     lines = [
@@ -149,6 +244,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runs", nargs="+", default=["baseline", "after-fix"])
     parser.add_argument("--chaos", default="chaos")
+    parser.add_argument(
+        "--streaming", help="label of a run whose mix includes streamed requests, reported apart"
+    )
+    parser.add_argument(
+        "--repeated", help="label of a run that measured each level more than once, for its spread"
+    )
     parser.add_argument("--detail-users", type=int, help="level for the per-kind table")
     args = parser.parse_args()
 
@@ -215,6 +316,18 @@ def main() -> int:
         "Autoscaling is measured separately, by `loadtest/autoscale.py`: see "
         "[AUTOSCALING.md](AUTOSCALING.md).",
     ]
+    if args.repeated:
+        repeated = load(args.repeated)
+        if repeated is None:
+            raise SystemExit(f"missing repeated result: {args.repeated}")
+        lines += ["", *repetitions_section(args.repeated, repeated)]
+    if repeated := repetitions_section(args.runs[-1], final):
+        lines += ["", *repeated]
+    if args.streaming:
+        streaming = load(args.streaming)
+        if streaming is None:
+            raise SystemExit(f"missing streaming result: {args.streaming}")
+        lines += ["", *streaming_section(args.streaming, streaming)]
     if chaos:
         lines += ["", *chaos_section(chaos)]
     (HERE / "RESULTS.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

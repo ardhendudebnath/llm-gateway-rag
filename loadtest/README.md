@@ -6,6 +6,7 @@ and what happens when a provider dies mid-traffic. Numbers: [`RESULTS.md`](RESUL
 
 ```bash
 python loadtest/in_cluster.py --label baseline                 # stepped load test, 5 levels x 45 s
+python loadtest/in_cluster.py --label streaming -- --stream-weight 4   # with streamed requests
 python loadtest/in_cluster.py --script chaos.py --label chaos  # kill a provider under traffic
 python loadtest/report.py --runs baseline after-fix --chaos chaos
 ```
@@ -19,6 +20,21 @@ rerank) and RAG answers (retrieval plus an LLM call). Misses are forced with `ca
 real embedding model, "unique" templated prompts can land inside the similarity threshold and
 silently become hits.
 
+**Streamed requests are a fifth kind, off by default** (`--stream-weight`, default 0). Turning them
+on changes the mix, which would make a run incomparable with the ones already in `results/` — so a
+streaming run is a separate, labelled one, and every result file records the weight it ran with.
+
+A streamed request is reported as two figures, because one would hide what matters: a slow
+generation with a fast first token is a good experience.
+
+| Metric | What it is |
+|---|---|
+| `chat: stream first token` | What Locust times for a streamed request: time to the response headers. For this gateway that *is* time to first token — the endpoint pulls the first chunk before the response exists, so the headers cannot precede it |
+| `chat: stream complete` | The whole stream, timed in the task and reported as its own metric, because Locust stops timing at the headers |
+
+The task consumes the entire body rather than abandoning it after the first chunk: the gateway
+meters a stream when it ends, and a client that walks away mid-stream is a different measurement.
+
 **Levels.** 25, 50, 100, 200 and 400 simulated users with 0.5–1.5 s think time, 45 s each, all
 users spawned at once and `--reset-stats` so the ramp isn't counted. A dedicated API key with a
 very high rate limit keeps the gateway's own limiter from being what "breaks".
@@ -27,6 +43,19 @@ very high rate limit keeps the gateway's own limiter from being what "breaks".
 to the API. The first run went from the Windows host instead, and Podman's port forwarder added
 about 2 s to ~5% of requests: the server measured chat completions at p95 96 ms, the client
 2,100 ms. Those numbers describe the laptop, not the service, so they were discarded.
+
+**A fixed two API replicas, with the autoscaler suspended.** Re-running the test months later gave
+89.8 req/s at 200 users against the 153.7 on record — with no change that could explain it. The
+cause was the environment, not the code: the HPA had scaled the API to **six** pods, and six copies
+of the embedding and reranking models contend for one laptop's cores. Two back-to-back levels in
+that state agreed with each other (119.4 and 118.7 req/s), so the measurement was stable and the
+*conditions* were not.
+
+Comparable runs therefore delete the `api` HPA and scale the deployment to 2, then restore it
+afterwards; autoscaling is measured separately by [`autoscale.py`](autoscale.py)
+([AUTOSCALING.md](AUTOSCALING.md)). Every level now records the number of API pods Prometheus could
+see while it ran, so a result that was taken under different conditions says so itself. The runs
+from before that existed do not carry the field.
 
 **Objective.** p95 under 500 ms with under 1% errors over the whole mix. RAG can't meet that on
 this hardware even unloaded (below), so results are also reported per request class: chat
@@ -73,7 +102,43 @@ smaller reranker, or a GPU. Hybrid retrieval has since made a fourth option real
 reranker entirely now costs ordering rather than recall (hit@1 0.922 → 0.794, recall@5 unchanged at
 1.000), which these numbers predate and a re-run would price properly.
 
-**6. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
+**6. The first level of a run measures start-up, not the service.** Re-running the test after
+months of changes appeared to show a 42% throughput regression at 200 users (89.8 req/s against
+153.7). Repeating the same level three times, interleaved, settled it: the first pass is the worst
+at *every* load — 78.8 / 111.7 / 149.6 req/s at 100 / 150 / 200 users — and the second and third
+agree within about 1% at 84.8 / 123.3 / 156.8. The pods had restarted shortly before each run, so
+the first measured level was paying for cold ONNX sessions and empty connection pools. Runs now
+start with a discarded warm-up level, levels are 60 s rather than 45, and the harness can repeat a
+level so the spread is reported instead of assumed:
+
+| Users | runs | median | range | spread |
+|---:|---:|---:|---:|---:|
+| 100 | 3 | 84.7 req/s | 78.8 to 84.8 | 7% |
+| 150 | 3 | 123.3 req/s | 111.7 to 123.5 | 10% |
+| 200 | 3 | 154.6 req/s | 149.6 to 156.8 | 5% |
+
+Warm, the current code matches the number on record: **156.8 req/s at 200 users against 153.7**, with
+streaming, hybrid retrieval, canary route selection and pooled circuit state all in the request path.
+Three measurement artifacts had stacked up to hide that — an autoscaler that had taken the API to six
+pods, a shared tenant that accumulated every corpus ever ingested, and cold pods inside a 45 s window.
+
+**7. A level between 100 and 200 users was worth measuring.** The old levels jumped from 100 to 200
+and no run ever met the whole-mix objective. At 150 users it does: **123.5 req/s with p95 460 ms**
+over the whole mix, which is the honest headline for this stack rather than a per-class figure.
+
+**8. RAG latency did regress, and the reranker's input is why.** RAG search p95 at 100 users is now
+1,700–2,000 ms against 960 ms on record, reproducibly across all three warm passes, at unchanged
+throughput (14.6 req/s against 13.7). Measured by condition at 100 users: hybrid with 9 documents
+1,300 ms, dense with 9 documents 1,500 ms, dense with 13 documents 1,800 ms. So **hybrid retrieval
+costs nothing measurable here** — the fused search is nominally faster than the dense one — while the
+corpus growing from 9 documents to 13 costs 300–500 ms, because the four documents added for the
+retrieval eval are dense tables and structure-aware chunking keeps their rows whole, handing the
+cross-encoder more text per candidate. A residual of roughly half a second is not attributed; the
+historical 960 ms is a single 45 s sample whose own spread was never measured, and the evidence above
+is that single samples here can be off by a factor of two. RAG no longer meets its 1 s objective at
+any level, and the summary tables say so.
+
+**9. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
 primary was made to fail every call for 45 s (through `PUT /v1/admin/faults/{deployment}`, which
 fails the deployment on every replica, exactly where a real provider error would):
 

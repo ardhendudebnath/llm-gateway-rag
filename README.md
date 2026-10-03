@@ -49,13 +49,17 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 
 | What | Result |
 |---|---|
-| Chat throughput, p95 under 500 ms, <1% errors | **153.7 req/s**, up from 20.6 before the load-test fixes |
-| RAG throughput, p95 under 1 s, <1% errors | **79 req/s**, up from 20.6 |
+| Whole mix, p95 under 500 ms, <1% errors | **123.5 req/s** at 150 users, p95 460 ms |
+| Chat throughput, p95 under 500 ms, <1% errors | **156.8 req/s**, up from 20.6 before the load-test fixes; median of 3 interleaved runs 154.6 (spread 5%) |
+| Streaming, time to first token | **36 ms p50, 170 ms p95** at 200 users, 0 errors; 180 ms / 1.2 s at 400 |
+| RAG, p95 under 1 s | **not met** at any level: p95 1.7–2.0 s at 100 users, against 960 ms before the retrieval corpus grew (see [why](loadtest/README.md#findings)) |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 102 labelled questions, 227 chunks | dense **recall@5 0.873** → hybrid **1.000**; identifier-only queries 0.722 → 1.000 |
 | Tests | **594** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
 
 The load test found a real breaking point. Unbounded model inference OOM-killed the API at 50 users, with 74% errors. Bounding it with backpressure and graceful degradation took it to 0 errors at 200 users and 6× the throughput (see [Design decisions](#design-decisions)).
+
+It also found a measurement problem worth more than the numbers. Re-running it after adding streaming, hybrid retrieval, canary routing and pooled circuit state showed what looked like a 42% throughput regression; it was three artifacts stacked — an autoscaler that had taken the API to six pods, a load-test tenant that accumulated every corpus ever ingested, and cold ONNX sessions inside a 45-second window. Repeating each level three times showed the first pass is the worst at every load and later passes agree within ~1%. Levels now start with a discarded warm-up, runs record how many pods served them, and repeated levels report their spread. The one regression that survived scrutiny is RAG tail latency, and the cause is the eval corpus I grew, not the gateway: [loadtest/README.md](loadtest/README.md#findings) has the per-condition numbers.
 
 ## Quickstart
 
