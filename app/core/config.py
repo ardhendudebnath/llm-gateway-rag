@@ -59,7 +59,11 @@ class Settings(BaseSettings):
     rag_chunk_overlap_words: int = Field(default=40, ge=0)
     rag_reranker: Literal["none", "cross-encoder"] = "none"
     rag_reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
-    rag_rerank_candidates: int = Field(default=20, gt=0)
+    # 12, not 20. Reranking is the slowest step, and its cost is linear in the candidates it reads:
+    # on the large eval corpus, 12 scores identically to 20 (recall@5 0.980, hit@1 0.922, terse
+    # recall 1.000) for 353 ms per query against 722. Hybrid retrieval is why that is now free —
+    # fusion puts the answer near the top of the candidate list, so the tail of it is dead weight.
+    rag_rerank_candidates: int = Field(default=12, gt=0)
     rag_max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
 
     # --- background jobs ---
@@ -95,6 +99,10 @@ class Settings(BaseSettings):
     # How the two halves are combined: "rrf" by ranks, "dbsf" by normalised scores. See
     # eval/RESULTS.md for what each does to recall and to ordering.
     retrieval_fusion: Literal["rrf", "dbsf"] = "rrf"
+    # Words of each candidate the cross-encoder reads when reranking (0 = all of it). Its cost
+    # scales with what it reads, and reranking is the gateway's slowest step; the passages returned
+    # to the caller are never truncated. Chosen from eval/RESULTS.md, not guessed.
+    rag_rerank_max_words: int = Field(default=0, ge=0)
 
     # --- gateway resilience ---
     provider_timeout_seconds: float = 30.0

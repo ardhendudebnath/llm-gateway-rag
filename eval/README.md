@@ -85,15 +85,27 @@ From the latest [`RESULTS.md`](RESULTS.md). The large-corpus numbers are the int
    passage out of the top 5 for two questions. Fusion maximises what is findable; reranking
    maximises what is read first. Both are on in production, and `rerank=false` is now a defensible
    500 ms saving when only recall matters.
-6. **Structure-aware chunking matters more as the corpus grows.** On the small corpus, structured
+6. **Reranking 12 candidates is as good as 20, and twice as fast.** Recall@5 0.980, identifier-only
+   recall 1.000 and hit@1 0.922 are identical at both, while p50 per query falls from 722 ms to
+   353 ms. Fusion is what makes the tail of the candidate list dead weight: it puts the answer near
+   the top, so the cross-encoder no longer needs twenty chances to find it. This is now the default
+   (`NEXUSGATE_RAG_RERANK_CANDIDATES=12`), and it is the fix for the RAG tail latency the load test
+   found.
+7. **Truncating what the reranker reads is a bad trade on reference content.** Capping each
+   candidate at 90 words also halves the cost (320 ms) but takes recall@5 to 0.922 and
+   identifier-only queries from 1.000 to 0.833; at 60 words, 0.863 and 0.611. The reason is
+   specific and instructive: a table chunk's answer is a *row*, and cutting the passage cuts rows
+   off. `NEXUSGATE_RAG_RERANK_MAX_WORDS` exists for deployments whose content is prose and whose
+   latency budget is tight, and defaults to off.
+8. **Structure-aware chunking matters more as the corpus grows.** On the small corpus, structured
    chunks beat fixed windows by 0.025 recall@5 (0.971 vs 0.946); on the large corpus, by 0.123
    (0.873 vs 0.750). Prefixing each chunk with its "title > heading path" is what distinguishes one
    near-identical table row from the next.
-7. **Overlap fixes facts cut at a boundary.** Fixed 180-word windows: recall@5 0.647 with no
+9. **Overlap fixes facts cut at a boundary.** Fixed 180-word windows: recall@5 0.647 with no
    overlap, 0.750 with 40 words of it, on the large corpus.
-8. **Chunk size barely matters, still.** 100/25 produces 350 chunks against 227 for 180/40 and
+10. **Chunk size barely matters, still.** 100/25 produces 350 chunks against 227 for 180/40 and
    scores slightly worse (0.863 vs 0.873): more, smaller chunks mean more near-duplicates competing.
-9. **A 4× latency bug, found by measuring.** The first run measured reranking at ~1,000 ms. ONNX
+11. **A 4× latency bug, found by measuring.** The first run measured reranking at ~1,000 ms. ONNX
    Runtime gives every model session a thread pool the size of the machine (24 threads here), and
    the embedder's and reranker's spinning pools fought over the CPU. Capping each model at 4 threads
    (`NEXUSGATE_MODEL_THREADS`) brought the same work down to ~230 ms, with identical scores.
@@ -105,7 +117,8 @@ From the latest [`RESULTS.md`](RESULTS.md). The large-corpus numbers are the int
 | Chunking | `structured`, 180 words, 40 overlap | Best recall and MRR at both corpus sizes, and the gap widens with distractors |
 | Embeddings | `BAAI/bge-small-en-v1.5` in Kubernetes | +30 points of recall@5 over lexical hashing on the large corpus; 384-d, fast on CPU |
 | Hybrid retrieval | On (`NEXUSGATE_RETRIEVAL_HYBRID`) | Recall@5 0.873 → 1.000 on the large corpus for ~7 ms, and it is the only thing that fixes identifier lookups |
-| Reranker | MiniLM cross-encoder over the top 20 | Hit@1 0.765 → 0.922 on fused candidates; skippable when latency matters more than ordering |
+| Reranker | MiniLM cross-encoder over the top **12** | Hit@1 0.765 → 0.922 on fused candidates. 12 scores identically to 20 for half the cost (353 ms against 722), and is skippable entirely when latency matters more than ordering |
+| Rerank input cap | Off | Halves the cost again but takes identifier-only recall from 1.000 to 0.833: a table's answer is a row, and a cap cuts rows off |
 | Dev and tests | Hashing embedder, no reranker, hybrid on | No model downloads; deterministic tests |
 
 ## Limitations

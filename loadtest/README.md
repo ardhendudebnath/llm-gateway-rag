@@ -138,6 +138,15 @@ historical 960 ms is a single 45 s sample whose own spread was never measured, a
 is that single samples here can be off by a factor of two. RAG no longer meets its 1 s objective at
 any level, and the summary tables say so.
 
+The fix came from the same reasoning: if the cross-encoder's input is the cost, hand it less of it.
+The retrieval eval priced two ways of doing that on the large corpus. Capping each candidate's text
+is a bad trade — 90 words halves the per-query cost but takes identifier-only recall from 1.000 to
+0.833, because a table's answer is a row and a cap cuts rows off. Scoring **12 candidates instead of
+20** is free: recall@5 0.980, identifier-only 1.000 and hit@1 0.922 are unchanged, for 353 ms a
+query against 722. Hybrid retrieval is what made it free, by putting the answer near the top of the
+candidate list. That is now the default; the numbers above predate it and a re-run is needed to say
+what it did to RAG p95 under load.
+
 **9. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
 primary was made to fail every call for 45 s (through `PUT /v1/admin/faults/{deployment}`, which
 fails the deployment on every replica, exactly where a real provider error would):

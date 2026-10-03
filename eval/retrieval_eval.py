@@ -75,10 +75,14 @@ class EvalConfig:
     candidates: int = 20  # vector hits handed to the reranker
     hybrid: bool = False  # BM25 sparse vectors fused with the dense ones (app/rag/lexical.py)
     fusion: str = "rrf"  # rrf (ranks) | dbsf (normalised scores)
+    rerank_max_words: int = 0  # words of each candidate the cross-encoder reads (0 = all)
 
     @property
     def name(self) -> str:
-        rerank = f" + {self.reranker} rerank of top {self.candidates}" if self.reranker else ""
+        capped = f" capped at {self.rerank_max_words}w" if self.rerank_max_words else ""
+        rerank = (
+            f" + {self.reranker} rerank of top {self.candidates}{capped}" if self.reranker else ""
+        )
         chunking = f"{self.chunker}-{self.max_words}/{self.overlap_words}"
         hybrid = f" + bm25 {self.fusion}" if self.hybrid else ""
         return f"{self.embedder} + {chunking}{hybrid}{rerank}"
@@ -103,6 +107,22 @@ CONFIGS = [
     # Score fusion instead of rank fusion: does an exact lexical match deserve more than "rank 1"?
     EvalConfig("structured", 180, 40, "bge-small", hybrid=True, fusion="dbsf"),
     EvalConfig("structured", 180, 40, "bge-small", "minilm", hybrid=True, fusion="dbsf"),
+    # Cheaper reranking, two ways. The load test put RAG search p95 at 1.7-2.0 s against 960 ms
+    # before the corpus grew, and the cross-encoder reads every candidate in full: fewer
+    # candidates, or less of each. Both cost accuracy only if these rows say they do.
+    EvalConfig("structured", 180, 40, "bge-small", "minilm", hybrid=True, candidates=12),
+    EvalConfig("structured", 180, 40, "bge-small", "minilm", hybrid=True, rerank_max_words=60),
+    EvalConfig("structured", 180, 40, "bge-small", "minilm", hybrid=True, rerank_max_words=90),
+    EvalConfig(
+        "structured",
+        180,
+        40,
+        "bge-small",
+        "minilm",
+        hybrid=True,
+        candidates=12,
+        rerank_max_words=90,
+    ),
 ]
 
 
@@ -197,6 +217,7 @@ async def run_config(
             candidates=config.candidates,
             hybrid=config.hybrid,
             fusion=config.fusion,
+            rerank_max_words=config.rerank_max_words,
         )
         per_question, latencies = [], []
         for q in questions:

@@ -183,6 +183,7 @@ async def build_rag(
         candidates=settings.rag_rerank_candidates,
         hybrid=settings.retrieval_hybrid,
         fusion=settings.retrieval_fusion,
+        rerank_max_words=settings.rag_rerank_max_words,
     )
     ingestion = IngestionService(
         store,

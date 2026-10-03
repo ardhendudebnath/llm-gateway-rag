@@ -236,6 +236,58 @@ async def test_the_retriever_uses_fusion_when_it_is_on(store_of):
     assert not any(h.chunk.text.startswith(WORST) for h in dense)
 
 
+class RecordingReranker:
+    """Scores nothing useful; remembers exactly what text it was asked to read."""
+
+    name = "recording"
+
+    def __init__(self):
+        self.seen: list[str] = []
+
+    async def scores(self, query, passages):
+        self.seen = list(passages)
+        return [float(len(passages) - i) for i in range(len(passages))]
+
+
+async def test_capping_the_rerank_input_shortens_what_the_model_reads(store_of):
+    store, embedder = await store_of(lexical=True)
+    reranker = RecordingReranker()
+
+    hits = await Retriever(
+        store, embedder, reranker, candidates=5, hybrid=True, rerank_max_words=4
+    ).search(TENANT, "NG-1021", top_k=5)
+
+    assert reranker.seen, "the reranker was called"
+    assert all(len(p.split()) <= 4 for p in reranker.seen), f"not capped: {reranker.seen}"
+    # The whole point: the caller still gets the full passage, so citations and the answer prompt
+    # are unaffected by a cap that exists only to make scoring cheaper.
+    assert any(h.chunk.text in ROWS for h in hits)
+    assert all(len(h.chunk.text.split()) > 4 for h in hits)
+
+
+async def test_without_a_cap_the_reranker_reads_whole_passages(store_of):
+    store, embedder = await store_of(lexical=True)
+    reranker = RecordingReranker()
+
+    await Retriever(store, embedder, reranker, candidates=5, hybrid=True).search(
+        TENANT, "NG-1021", top_k=5
+    )
+
+    assert set(reranker.seen) <= set(ROWS)
+    assert all(len(p.split()) > 4 for p in reranker.seen)
+
+
+async def test_a_passage_shorter_than_the_cap_is_untouched(store_of):
+    store, embedder = await store_of(lexical=True)
+    reranker = RecordingReranker()
+
+    await Retriever(
+        store, embedder, reranker, candidates=5, hybrid=True, rerank_max_words=500
+    ).search(TENANT, "NG-1021", top_k=5)
+
+    assert set(reranker.seen) <= set(ROWS), "no needless rewriting of short passages"
+
+
 async def test_hybrid_also_answers_a_paraphrase_with_a_real_embedder(store_of):
     """Fusion must not cost anything on the queries dense retrieval was already good at."""
     store, embedder = await store_of(lexical=True, embedder=HashingEmbedder())
