@@ -144,10 +144,34 @@ is a bad trade — 90 words halves the per-query cost but takes identifier-only 
 0.833, because a table's answer is a row and a cap cuts rows off. Scoring **12 candidates instead of
 20** is free: recall@5 0.980, identifier-only 1.000 and hit@1 0.922 are unchanged, for 353 ms a
 query against 722. Hybrid retrieval is what made it free, by putting the answer near the top of the
-candidate list. That is now the default; the numbers above predate it and a re-run is needed to say
-what it did to RAG p95 under load.
+candidate list. That is now the default.
 
-**9. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
+**10. Measuring that fix needed an A/B in one sitting, and taught the resolution of this bench.**
+The first attempt compared a 12-candidate run against the 20-candidate run from the week before and
+appeared to show the fix making everything *worse* — 95.1 req/s at 200 users against 154.6. Re-running
+the 20-candidate configuration on the same day gave 89.0–100.7 req/s at 150 users against 123.3 the
+week before: the same configuration, 20% apart, so the week-over-week comparison was worthless
+again. Adjacent repetitions within one warm run also differ by about 12%, which is this bench's
+resolution: it cannot see an effect smaller than roughly 15%.
+
+Run as two arms back to back in one session, on the same pods, the effect is above that floor and
+consistent across both levels and both repetitions:
+
+| 150 users | 20 candidates | 12 candidates |
+|---|---:|---:|
+| throughput | 100.7, 89.0 req/s | **108.9, 112.9 req/s** |
+| whole-mix p95 | 1,200, 1,800 ms | **990, 740 ms** |
+| rag: search p95 | 2,000 ms | **1,600 ms** |
+| rag: answer p95 | 2,800 ms | **1,800 ms** |
+| chat: cache hit p95 | 1,100 ms | **710 ms** |
+
+Chat improves too, which is the giveaway for the mechanism: the reranker and the embedder compete
+for the same cores, so taking work away from the reranker hands it back to the embedding behind
+every cache lookup. RAG search p95 at 100 users falls from 2,200 ms to 1,400 ms. Against the 960 ms
+on record that still leaves a few hundred milliseconds, which is about what the larger corpus costs
+(finding 8) — so the regression is now explained by the fixture rather than outstanding.
+
+**11. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
 primary was made to fail every call for 45 s (through `PUT /v1/admin/faults/{deployment}`, which
 fails the deployment on every replica, exactly where a real provider error would):
 

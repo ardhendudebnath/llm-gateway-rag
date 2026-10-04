@@ -52,7 +52,7 @@ Measured on one 12-vCPU laptop shared by every component, with Locust running in
 | Whole mix, p95 under 500 ms, <1% errors | **123.5 req/s** at 150 users, p95 460 ms |
 | Chat throughput, p95 under 500 ms, <1% errors | **156.8 req/s**, up from 20.6 before the load-test fixes; median of 3 interleaved runs 154.6 (spread 5%) |
 | Streaming, time to first token | **36 ms p50, 170 ms p95** at 200 users, 0 errors; 180 ms / 1.2 s at 400 |
-| RAG, p95 under 1 s | **not met** when last measured: p95 1.7–2.0 s at 100 users, against 960 ms before the retrieval corpus grew. The cause was the reranker's input, and halving its candidate list cut the eval's per-query cost from 722 ms to 353 with identical accuracy — not yet re-measured under load ([why](loadtest/README.md#findings)) |
+| RAG, p95 under 1 s | **not met**, but recovered most of the way: 1.4 s at 100 users after cutting the reranker's candidate list from 20 to 12, from 2.2 s before, with identical retrieval accuracy. An A/B in one sitting also took RAG answer p95 from 2.8 s to 1.8 s and whole-mix throughput up 17% at 150 users. The rest of the gap to the 960 ms on record is the retrieval corpus having grown ([why](loadtest/README.md#findings)) |
 | Primary provider killed under traffic | **0 user-visible failures** in 2,100 requests; breakers opened 0.9 s after the fault |
 | Retrieval quality, 102 labelled questions, 227 chunks | dense **recall@5 0.873** → hybrid **1.000**; identifier-only queries 0.722 → 1.000 |
 | Tests | **594** (unit, integration, provider contracts), **97% coverage**, no network access, no API spend |
