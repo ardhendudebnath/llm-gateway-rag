@@ -109,7 +109,9 @@ def job(name: str, script: str, script_args: list[str]) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--label", required=True)
-    parser.add_argument("--script", default="run_load.py", choices=["run_load.py", "chaos.py"])
+    parser.add_argument(
+        "--script", default="run_load.py", choices=["run_load.py", "chaos.py", "soak.py"]
+    )
     parser.add_argument(
         "--corpus-dir",
         type=Path,
