@@ -5,7 +5,6 @@ Qdrant either bundled or external, and monitoring handed to the cluster's own Pr
 
 ```bash
 helm install nexusgate infra/helm/nexusgate --namespace nexusgate --create-namespace \
-  --set image.repository=<your-registry>/nexusgate-api --set image.tag=<tag> \
   --set secrets.existingSecret=nexusgate-secrets
 ```
 
@@ -23,6 +22,30 @@ is the way to run it on a cluster you don't own end to end.
 | Worker autoscaling | on, with prometheus-adapter bundled | off by default: it needs an adapter serving the queue-depth metric, which is cluster-specific |
 | PodDisruptionBudget | none | on for the API, so a node drain can't evict every replica at once |
 | Config changes | roll pods via hashed ConfigMap names | roll pods via a checksum annotation |
+
+## Image
+
+The chart pulls `ghcr.io/ardhendudebnath/nexusgate-api`, which CI publishes:
+
+| Tag | From | Use |
+|---|---|---|
+| `X.Y.Z`, `X.Y`, `latest` | each release tag `vX.Y.Z` | `X.Y.Z` is the chart's default: its `appVersion` |
+| `main`, `sha-<commit>` | every push to main | the newest build; `main` moves, so set `pullPolicy: Always` |
+
+Before anything is pushed, [`scripts/check_image.py`](../../../scripts/check_image.py) runs the
+image the way this chart runs it: it renders the chart and starts the bundled Redis Stack and
+Qdrant, the dependency wait, the API and a worker in one Podman pod, each with the environment,
+command, user and security context the chart gives it, then runs the smoke test against the API.
+Anyone can run it against any tag:
+
+```bash
+python scripts/check_image.py ghcr.io/ardhendudebnath/nexusgate-api:0.2.0
+```
+
+A release tag that disagrees with the app's version is refused, and a test holds the chart's
+`appVersion` equal to it, so a default install always pulls the image built from its own release.
+To run a local build on kind instead, load it (`kind load image-archive`) and set
+`image.repository=localhost/nexusgate-api` and `image.tag=dev`.
 
 ## Secrets
 
@@ -94,9 +117,11 @@ shared across replicas.
 - `tests/unit/test_helm_chart.py` renders the chart and checks what it produces and what it refuses:
   missing or short secrets, a disabled datastore with nowhere to point, the HPA owning the replica
   count, no disruption budget on a single replica, config changes rolling the pods, non-root
-  containers everywhere.
+  containers everywhere, and a default install pulling the image of its own release.
 - CI lints it and validates every rendered object with `kubeconform -strict`, including the Prometheus
   Operator CRDs, with every optional piece switched on (`ci/test-values.yaml`).
+- Every image CI builds is run as the chart runs it and smoke-tested before it can be published
+  (above).
 - It has been installed into a kind cluster with its defaults and passed the full
   [`smoke test`](../../../scripts/smoke_test.py): chat, caching, fallback, shared breaker state,
   streaming, canary rollout, RAG ingestion through the workers, search, answers and the agent.

@@ -5,11 +5,13 @@ nameOverride: ""
 fullnameOverride: ""
 
 image:
-  # CI builds this image but does not publish it. Build it from the repository root and push it
-  # to a registry your cluster can pull from, then point this at it:
-  #   podman build -f Containerfile -t <registry>/nexusgate-api:<tag> . && podman push ...
-  # On kind, load it instead (`kind load image-archive`) and use pullPolicy IfNotPresent.
-  repository: localhost/nexusgate-api
+  # Published by CI once the image has run the way this chart runs it and passed the smoke test
+  # (scripts/check_image.py): `X.Y.Z`, `X.Y` and `latest` from each release tag vX.Y.Z, and `main`
+  # and `sha-<commit>` from every push to main. The tag defaults to the chart's appVersion, which a
+  # test holds equal to the app's version, so the chart installs the image built from its release.
+  # `main` moves: pair it with pullPolicy Always. A local build loaded into kind:
+  #   --set image.repository=localhost/nexusgate-api --set image.tag=dev
+  repository: ghcr.io/ardhendudebnath/nexusgate-api
   tag: "" # defaults to the chart's appVersion
   pullPolicy: IfNotPresent
 imagePullSecrets: []

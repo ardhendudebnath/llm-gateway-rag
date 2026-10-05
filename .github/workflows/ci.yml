@@ -3,11 +3,16 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# Read-only by default; the image job is the one place that writes (to the container registry).
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -36,15 +41,69 @@ jobs:
           name: coverage
           path: coverage.xml
 
+  # Every image is run the way the Helm chart runs it and smoke-tested before anything else happens
+  # to it. A push to main then publishes it to ghcr.io as `main` and `sha-<commit>`; a release tag
+  # vX.Y.Z publishes `X.Y.Z` (the tag the chart pulls by default), `X.Y` and `latest`. Pull
+  # requests build and check it, and never push.
   image:
     needs: test
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.11" }
+      - name: Work out the version and tags
+        id: meta
+        run: |
+          version=$(grep -m 1 '^version = ' pyproject.toml | cut -d '"' -f 2)
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # The chart's default image tag is its appVersion, which a test holds equal to this
+            # version: a release tag that disagreed would publish an image the chart never pulls.
+            if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match version $version in pyproject.toml"
+              exit 1
+            fi
+            tags="$version ${version%.*} latest"
+          else
+            tags="main sha-${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
       - name: Build the API image with Podman
-        run: podman build --tag localhost/nexusgate-api:ci --file Containerfile .
-      - name: The image starts and the app imports
-        run: podman run --rm localhost/nexusgate-api:ci python -c "import app.main"
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          podman build --tag localhost/nexusgate-api:ci --file Containerfile \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.description=NexusGate: LLM gateway and RAG backend" \
+            .
+      - name: Run it as the Helm chart does, and smoke-test it
+        run: |
+          pip install httpx pyyaml
+          python scripts/check_image.py localhost/nexusgate-api:ci
+      - name: Publish to the GitHub Container Registry
+        if: github.event_name == 'push'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nexusgate-api"
+          printf '%s' "$TOKEN" | podman login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for tag in $TAGS; do
+            podman push --digestfile digest localhost/nexusgate-api:ci "$image:$tag"
+          done
+          {
+            echo "### Published"
+            echo '```'
+            for tag in $TAGS; do echo "$image:$tag"; done
+            echo "$image@$(cat digest)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # The public demo is the artifact people actually see, so boot it and walk through it.
   demo:

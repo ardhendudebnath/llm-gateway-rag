@@ -7,10 +7,13 @@ always runs — two copies of one file is exactly what drifts silently.
 
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
+
+from app import __version__
 
 ROOT = Path(__file__).resolve().parents[2]
 CHART = ROOT / "infra" / "helm" / "nexusgate"
@@ -64,6 +67,16 @@ def test_the_charts_copies_match_the_base_stack(copy, original):
     )
 
 
+def test_the_chart_and_the_app_agree_on_the_version():
+    """The chart pulls the image tagged with its appVersion, and CI publishes that tag only from a
+    release tag matching pyproject.toml. If these drift, a default install pulls another build of
+    the app, or one that was never published."""
+    chart = yaml.safe_load((CHART / "Chart.yaml").read_text(encoding="utf-8"))
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+
+    assert chart["appVersion"] == project["version"] == __version__
+
+
 @needs_helm
 def test_an_install_without_secrets_is_refused_with_a_reason():
     result = render()
@@ -98,6 +111,14 @@ def test_the_default_install_has_everything_it_needs_and_nothing_optional():
     assert "PodDisruptionBudget" in kinds
     for optional in ("Ingress", "ServiceMonitor", "PrometheusRule"):
         assert optional not in kinds, f"{optional} must be opt-in"
+
+
+@needs_helm
+def test_a_default_install_pulls_the_published_image_of_its_own_release():
+    pods = [d["spec"]["template"]["spec"] for d in by_kind(objects(*SECRETS), "Deployment")]
+    images = {c["image"] for pod in pods for c in pod["containers"] + pod.get("initContainers", [])}
+
+    assert images == {f"ghcr.io/ardhendudebnath/nexusgate-api:{__version__}"}
 
 
 @needs_helm
