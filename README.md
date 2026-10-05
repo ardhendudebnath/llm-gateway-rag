@@ -434,11 +434,15 @@ Eight weekly milestones, following the project spec:
 
 ## What I'd do with more time
 
-- Load-test the streaming path: the numbers above are for whole responses, and time to first token
-  under load is the figure a streaming client actually feels.
 - An LLM-judged eval of answer faithfulness: retrieval is measured, groundedness is not.
 - An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. It needs a real provider, so the offline test suite can't answer it.
 - A model-comparison harness that feeds back into route ordering.
-- GPU inference or a smaller reranker, to lower the RAG latency floor.
-- A soak test.
+- GPU inference, to lower the RAG latency floor. A smaller reranker was the CPU-only lever, and it
+  isn't there: the shallowest model fastembed offers is not measurably faster than the current one
+  on real passages — its speed difference changed sign between runs ([eval finding 8](eval/README.md#findings)). Without a GPU, the remaining trade is
+  skipping the reranker — 22 ms instead of ~270, at hit@1 0.794 instead of 0.922.
+- Re-run the soak on dedicated hardware. On this laptop an hour showed no leak and no errors, and
+  most of a p95 drift traced to the power plan — but the inference queue grew in every run, and only
+  a machine without a power cap can say whether that is the service or the host
+  ([finding 11](loadtest/README.md#findings)).
 - A Helm chart for real clusters.

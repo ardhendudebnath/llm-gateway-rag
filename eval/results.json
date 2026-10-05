@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T09:12:45+00:00",
+  "generated_at": "2026-10-05T04:57:03+00:00",
   "questions": 102,
   "kinds": {
     "lexical": 29,
@@ -31,7 +31,7 @@
           "recall@5": 0.701,
           "mrr": 0.518,
           "hit@1": 0.392,
-          "ms_per_query_p50": 1.0,
+          "ms_per_query_p50": 0.7,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -141,7 +141,7 @@
           "recall@5": 0.887,
           "mrr": 0.736,
           "hit@1": 0.627,
-          "ms_per_query_p50": 8.1,
+          "ms_per_query_p50": 6.2,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -215,7 +215,7 @@
           "recall@5": 0.946,
           "mrr": 0.787,
           "hit@1": 0.657,
-          "ms_per_query_p50": 8.1,
+          "ms_per_query_p50": 6.0,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -275,7 +275,7 @@
           "recall@5": 0.926,
           "mrr": 0.807,
           "hit@1": 0.716,
-          "ms_per_query_p50": 8.6,
+          "ms_per_query_p50": 6.1,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -339,7 +339,7 @@
           "recall@5": 0.971,
           "mrr": 0.857,
           "hit@1": 0.775,
-          "ms_per_query_p50": 9.0,
+          "ms_per_query_p50": 6.2,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -393,7 +393,7 @@
           "recall@5": 0.951,
           "mrr": 0.856,
           "hit@1": 0.775,
-          "ms_per_query_p50": 8.4,
+          "ms_per_query_p50": 6.3,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -450,7 +450,7 @@
           "recall@5": 0.912,
           "mrr": 0.822,
           "hit@1": 0.755,
-          "ms_per_query_p50": 9.6,
+          "ms_per_query_p50": 6.7,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -516,7 +516,7 @@
           "recall@5": 1.0,
           "mrr": 0.966,
           "hit@1": 0.931,
-          "ms_per_query_p50": 842.1,
+          "ms_per_query_p50": 551.1,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -560,7 +560,7 @@
           "recall@5": 1.0,
           "mrr": 0.975,
           "hit@1": 0.951,
-          "ms_per_query_p50": 617.3,
+          "ms_per_query_p50": 464.7,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -604,7 +604,7 @@
           "recall@5": 0.971,
           "mrr": 0.951,
           "hit@1": 0.931,
-          "ms_per_query_p50": 263.6,
+          "ms_per_query_p50": 198.8,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -658,7 +658,7 @@
           "recall@5": 1.0,
           "mrr": 0.927,
           "hit@1": 0.863,
-          "ms_per_query_p50": 11.1,
+          "ms_per_query_p50": 7.4,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -702,7 +702,7 @@
           "recall@5": 1.0,
           "mrr": 0.975,
           "hit@1": 0.951,
-          "ms_per_query_p50": 566.5,
+          "ms_per_query_p50": 470.4,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -746,7 +746,7 @@
           "recall@5": 1.0,
           "mrr": 0.944,
           "hit@1": 0.892,
-          "ms_per_query_p50": 10.5,
+          "ms_per_query_p50": 7.5,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -790,7 +790,7 @@
           "recall@5": 1.0,
           "mrr": 0.975,
           "hit@1": 0.951,
-          "ms_per_query_p50": 605.2,
+          "ms_per_query_p50": 458.3,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -834,7 +834,7 @@
           "recall@5": 1.0,
           "mrr": 0.975,
           "hit@1": 0.951,
-          "ms_per_query_p50": 321.4,
+          "ms_per_query_p50": 236.0,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -878,7 +878,7 @@
           "recall@5": 0.941,
           "mrr": 0.861,
           "hit@1": 0.804,
-          "ms_per_query_p50": 193.2,
+          "ms_per_query_p50": 153.5,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -937,7 +937,7 @@
           "recall@5": 0.971,
           "mrr": 0.906,
           "hit@1": 0.853,
-          "ms_per_query_p50": 267.9,
+          "ms_per_query_p50": 225.3,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -990,7 +990,7 @@
           "recall@5": 1.0,
           "mrr": 0.918,
           "hit@1": 0.863,
-          "ms_per_query_p50": 171.2,
+          "ms_per_query_p50": 126.3,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1015,9 +1015,145 @@
             }
           },
           "misses": []
+        },
+        {
+          "config": "bge-small + structured-180/40 + bm25 rrf + minilm-l12 rerank of top 12",
+          "settings": {
+            "chunker": "structured",
+            "max_words": 180,
+            "overlap_words": 40,
+            "embedder": "bge-small",
+            "reranker": "minilm-l12",
+            "candidates": 12,
+            "hybrid": true,
+            "fusion": "rrf",
+            "rerank_max_words": 0
+          },
+          "chunks": 70,
+          "precision@5": 0.218,
+          "recall@5": 1.0,
+          "mrr": 0.99,
+          "hit@1": 0.98,
+          "ms_per_query_p50": 440.5,
+          "by_kind": {
+            "lexical": {
+              "questions": 29,
+              "recall@5": 1.0,
+              "mrr": 0.966,
+              "hit@1": 0.931,
+              "misses": []
+            },
+            "semantic": {
+              "questions": 55,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            },
+            "terse": {
+              "questions": 18,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            }
+          },
+          "misses": []
+        },
+        {
+          "config": "bge-small + structured-180/40 + bm25 rrf + jina-tiny rerank of top 12",
+          "settings": {
+            "chunker": "structured",
+            "max_words": 180,
+            "overlap_words": 40,
+            "embedder": "bge-small",
+            "reranker": "jina-tiny",
+            "candidates": 12,
+            "hybrid": true,
+            "fusion": "rrf",
+            "rerank_max_words": 0
+          },
+          "chunks": 70,
+          "precision@5": 0.218,
+          "recall@5": 1.0,
+          "mrr": 0.973,
+          "hit@1": 0.951,
+          "ms_per_query_p50": 207.2,
+          "by_kind": {
+            "lexical": {
+              "questions": 29,
+              "recall@5": 1.0,
+              "mrr": 0.966,
+              "hit@1": 0.931,
+              "misses": []
+            },
+            "semantic": {
+              "questions": 55,
+              "recall@5": 1.0,
+              "mrr": 0.968,
+              "hit@1": 0.945,
+              "misses": []
+            },
+            "terse": {
+              "questions": 18,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            }
+          },
+          "misses": []
+        },
+        {
+          "config": "bge-small + structured-180/40 + bm25 rrf + jina-turbo rerank of top 12",
+          "settings": {
+            "chunker": "structured",
+            "max_words": 180,
+            "overlap_words": 40,
+            "embedder": "bge-small",
+            "reranker": "jina-turbo",
+            "candidates": 12,
+            "hybrid": true,
+            "fusion": "rrf",
+            "rerank_max_words": 0
+          },
+          "chunks": 70,
+          "precision@5": 0.216,
+          "recall@5": 0.99,
+          "mrr": 0.98,
+          "hit@1": 0.971,
+          "ms_per_query_p50": 301.4,
+          "by_kind": {
+            "lexical": {
+              "questions": 29,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            },
+            "semantic": {
+              "questions": 55,
+              "recall@5": 0.982,
+              "mrr": 0.964,
+              "hit@1": 0.945,
+              "misses": [
+                "q37"
+              ]
+            },
+            "terse": {
+              "questions": 18,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            }
+          },
+          "misses": [
+            "q37"
+          ]
         }
       ],
-      "best": "bge-small + structured-180/40 + bm25 rrf + minilm rerank of top 12"
+      "best": "bge-small + structured-180/40 + bm25 rrf + minilm-l12 rerank of top 12"
     },
     {
       "corpus": "large",
@@ -1042,7 +1178,7 @@
           "recall@5": 0.578,
           "mrr": 0.456,
           "hit@1": 0.373,
-          "ms_per_query_p50": 1.9,
+          "ms_per_query_p50": 1.3,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1178,7 +1314,7 @@
           "recall@5": 0.647,
           "mrr": 0.572,
           "hit@1": 0.52,
-          "ms_per_query_p50": 8.2,
+          "ms_per_query_p50": 5.1,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1300,7 +1436,7 @@
           "recall@5": 0.75,
           "mrr": 0.651,
           "hit@1": 0.578,
-          "ms_per_query_p50": 7.8,
+          "ms_per_query_p50": 5.2,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1400,7 +1536,7 @@
           "recall@5": 0.77,
           "mrr": 0.679,
           "hit@1": 0.608,
-          "ms_per_query_p50": 8.0,
+          "ms_per_query_p50": 5.2,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1496,7 +1632,7 @@
           "recall@5": 0.873,
           "mrr": 0.773,
           "hit@1": 0.706,
-          "ms_per_query_p50": 9.4,
+          "ms_per_query_p50": 5.4,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1570,7 +1706,7 @@
           "recall@5": 0.863,
           "mrr": 0.778,
           "hit@1": 0.725,
-          "ms_per_query_p50": 10.2,
+          "ms_per_query_p50": 6.4,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1646,7 +1782,7 @@
           "recall@5": 0.814,
           "mrr": 0.736,
           "hit@1": 0.676,
-          "ms_per_query_p50": 9.6,
+          "ms_per_query_p50": 5.1,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1732,7 +1868,7 @@
           "recall@5": 0.858,
           "mrr": 0.843,
           "hit@1": 0.833,
-          "ms_per_query_p50": 680.6,
+          "ms_per_query_p50": 511.8,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1810,7 +1946,7 @@
           "recall@5": 0.922,
           "mrr": 0.894,
           "hit@1": 0.873,
-          "ms_per_query_p50": 748.6,
+          "ms_per_query_p50": 472.2,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1873,7 +2009,7 @@
           "recall@5": 0.863,
           "mrr": 0.846,
           "hit@1": 0.833,
-          "ms_per_query_p50": 377.0,
+          "ms_per_query_p50": 217.8,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1949,7 +2085,7 @@
           "recall@5": 1.0,
           "mrr": 0.884,
           "hit@1": 0.794,
-          "ms_per_query_p50": 21.2,
+          "ms_per_query_p50": 11.5,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -1993,7 +2129,7 @@
           "recall@5": 0.98,
           "mrr": 0.948,
           "hit@1": 0.922,
-          "ms_per_query_p50": 796.3,
+          "ms_per_query_p50": 477.8,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2043,7 +2179,7 @@
           "recall@5": 0.99,
           "mrr": 0.924,
           "hit@1": 0.873,
-          "ms_per_query_p50": 19.6,
+          "ms_per_query_p50": 11.1,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2091,7 +2227,7 @@
           "recall@5": 0.98,
           "mrr": 0.948,
           "hit@1": 0.922,
-          "ms_per_query_p50": 813.3,
+          "ms_per_query_p50": 488.3,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2141,7 +2277,7 @@
           "recall@5": 0.98,
           "mrr": 0.949,
           "hit@1": 0.922,
-          "ms_per_query_p50": 453.2,
+          "ms_per_query_p50": 271.4,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2191,7 +2327,7 @@
           "recall@5": 0.863,
           "mrr": 0.795,
           "hit@1": 0.755,
-          "ms_per_query_p50": 270.1,
+          "ms_per_query_p50": 171.5,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2266,7 +2402,7 @@
           "recall@5": 0.922,
           "mrr": 0.861,
           "hit@1": 0.824,
-          "ms_per_query_p50": 386.9,
+          "ms_per_query_p50": 238.4,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2329,7 +2465,7 @@
           "recall@5": 0.922,
           "mrr": 0.861,
           "hit@1": 0.824,
-          "ms_per_query_p50": 231.9,
+          "ms_per_query_p50": 141.0,
           "by_kind": {
             "lexical": {
               "questions": 29,
@@ -2372,6 +2508,155 @@
             "q86",
             "q89",
             "q98"
+          ]
+        },
+        {
+          "config": "bge-small + structured-180/40 + bm25 rrf + minilm-l12 rerank of top 12",
+          "settings": {
+            "chunker": "structured",
+            "max_words": 180,
+            "overlap_words": 40,
+            "embedder": "bge-small",
+            "reranker": "minilm-l12",
+            "candidates": 12,
+            "hybrid": true,
+            "fusion": "rrf",
+            "rerank_max_words": 0
+          },
+          "chunks": 227,
+          "precision@5": 0.214,
+          "recall@5": 0.98,
+          "mrr": 0.975,
+          "hit@1": 0.971,
+          "ms_per_query_p50": 517.9,
+          "by_kind": {
+            "lexical": {
+              "questions": 29,
+              "recall@5": 0.931,
+              "mrr": 0.914,
+              "hit@1": 0.897,
+              "misses": [
+                "q56",
+                "q61"
+              ]
+            },
+            "semantic": {
+              "questions": 55,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            },
+            "terse": {
+              "questions": 18,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            }
+          },
+          "misses": [
+            "q56",
+            "q61"
+          ]
+        },
+        {
+          "config": "bge-small + structured-180/40 + bm25 rrf + jina-tiny rerank of top 12",
+          "settings": {
+            "chunker": "structured",
+            "max_words": 180,
+            "overlap_words": 40,
+            "embedder": "bge-small",
+            "reranker": "jina-tiny",
+            "candidates": 12,
+            "hybrid": true,
+            "fusion": "rrf",
+            "rerank_max_words": 0
+          },
+          "chunks": 227,
+          "precision@5": 0.216,
+          "recall@5": 0.99,
+          "mrr": 0.952,
+          "hit@1": 0.922,
+          "ms_per_query_p50": 248.7,
+          "by_kind": {
+            "lexical": {
+              "questions": 29,
+              "recall@5": 0.966,
+              "mrr": 0.908,
+              "hit@1": 0.862,
+              "misses": [
+                "q61"
+              ]
+            },
+            "semantic": {
+              "questions": 55,
+              "recall@5": 1.0,
+              "mrr": 0.968,
+              "hit@1": 0.945,
+              "misses": []
+            },
+            "terse": {
+              "questions": 18,
+              "recall@5": 1.0,
+              "mrr": 0.972,
+              "hit@1": 0.944,
+              "misses": []
+            }
+          },
+          "misses": [
+            "q61"
+          ]
+        },
+        {
+          "config": "bge-small + structured-180/40 + bm25 rrf + jina-turbo rerank of top 12",
+          "settings": {
+            "chunker": "structured",
+            "max_words": 180,
+            "overlap_words": 40,
+            "embedder": "bge-small",
+            "reranker": "jina-turbo",
+            "candidates": 12,
+            "hybrid": true,
+            "fusion": "rrf",
+            "rerank_max_words": 0
+          },
+          "chunks": 227,
+          "precision@5": 0.214,
+          "recall@5": 0.98,
+          "mrr": 0.952,
+          "hit@1": 0.931,
+          "ms_per_query_p50": 353.3,
+          "by_kind": {
+            "lexical": {
+              "questions": 29,
+              "recall@5": 0.966,
+              "mrr": 0.899,
+              "hit@1": 0.862,
+              "misses": [
+                "q61"
+              ]
+            },
+            "semantic": {
+              "questions": 55,
+              "recall@5": 0.982,
+              "mrr": 0.964,
+              "hit@1": 0.945,
+              "misses": [
+                "q37"
+              ]
+            },
+            "terse": {
+              "questions": 18,
+              "recall@5": 1.0,
+              "mrr": 1.0,
+              "hit@1": 1.0,
+              "misses": []
+            }
+          },
+          "misses": [
+            "q37",
+            "q61"
           ]
         }
       ],

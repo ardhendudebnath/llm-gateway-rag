@@ -97,15 +97,28 @@ From the latest [`RESULTS.md`](RESULTS.md). The large-corpus numbers are the int
    specific and instructive: a table chunk's answer is a *row*, and cutting the passage cuts rows
    off. `NEXUSGATE_RAG_RERANK_MAX_WORDS` exists for deployments whose content is prose and whose
    latency budget is tight, and defaults to off.
-8. **Structure-aware chunking matters more as the corpus grows.** On the small corpus, structured
+8. **No faster reranker was on offer.** With RAG still missing its latency objective, the next
+   lever was a shallower cross-encoder. Every model fastembed supports here was compared at the
+   production setting (hybrid, 12 candidates), so the model was the only variable. The candidate,
+   jina-reranker-v1-tiny-en, has 4 layers against MiniLM-L-6's 6 and looked faster on three short
+   strings. On real passages there is no measurable difference: one run had it 4% slower, the next
+   8% faster, which is inside the eval's timing noise and nowhere near the 20% that would justify a
+   switch. It is equal or marginally better on accuracy — one more question found (recall@5 0.990),
+   hit@1 identical — but one question in 102 is not a reason to swap a model whose score margins
+   were also visibly thinner. jina-turbo is slower in both runs for the same accuracy.
+9. **The deeper model buys ordering, not recall.** MiniLM-L-12 matches recall@5 at 0.980 but lifts
+   hit@1 from 0.922 to 0.971 and MRR from 0.949 to 0.975 — for twice the cost (543 ms). That is the
+   right trade where the first passage matters more than latency, and the wrong one here, where RAG
+   already misses its 1 s objective. `NEXUSGATE_RAG_RERANKER_MODEL` switches it.
+10. **Structure-aware chunking matters more as the corpus grows.** On the small corpus, structured
    chunks beat fixed windows by 0.025 recall@5 (0.971 vs 0.946); on the large corpus, by 0.123
    (0.873 vs 0.750). Prefixing each chunk with its "title > heading path" is what distinguishes one
    near-identical table row from the next.
-9. **Overlap fixes facts cut at a boundary.** Fixed 180-word windows: recall@5 0.647 with no
+11. **Overlap fixes facts cut at a boundary.** Fixed 180-word windows: recall@5 0.647 with no
    overlap, 0.750 with 40 words of it, on the large corpus.
-10. **Chunk size barely matters, still.** 100/25 produces 350 chunks against 227 for 180/40 and
+12. **Chunk size barely matters, still.** 100/25 produces 350 chunks against 227 for 180/40 and
    scores slightly worse (0.863 vs 0.873): more, smaller chunks mean more near-duplicates competing.
-11. **A 4× latency bug, found by measuring.** The first run measured reranking at ~1,000 ms. ONNX
+13. **A 4× latency bug, found by measuring.** The first run measured reranking at ~1,000 ms. ONNX
    Runtime gives every model session a thread pool the size of the machine (24 threads here), and
    the embedder's and reranker's spinning pools fought over the CPU. Capping each model at 4 threads
    (`NEXUSGATE_MODEL_THREADS`) brought the same work down to ~230 ms, with identical scores.

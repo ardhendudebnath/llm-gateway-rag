@@ -49,7 +49,12 @@ QA_FILE = EVAL_DIR / "labeled_qa.jsonl"
 TENANT = "eval"
 
 EMBEDDING_MODELS = {"bge-small": "BAAI/bge-small-en-v1.5"}
-RERANKER_MODELS = {"minilm": "Xenova/ms-marco-MiniLM-L-6-v2"}
+RERANKER_MODELS = {
+    "minilm": "Xenova/ms-marco-MiniLM-L-6-v2",  # the production default: 6 layers, 0.08 GB
+    "minilm-l12": "Xenova/ms-marco-MiniLM-L-12-v2",  # twice as deep: is accuracy being left behind?
+    "jina-tiny": "jinaai/jina-reranker-v1-tiny-en",  # 4 layers: the candidate for a faster default
+    "jina-turbo": "jinaai/jina-reranker-v1-turbo-en",  # 6 layers, different training data
+}
 
 
 @dataclass(frozen=True)
@@ -123,6 +128,12 @@ CONFIGS = [
         candidates=12,
         rerank_max_words=90,
     ),
+    # A different reranker, at the production setting (hybrid, 12 candidates), so the model is the
+    # only variable. The cross-encoder is still the slowest step and RAG p95 still misses its 1 s
+    # objective, so a shallower model is the next lever — if it holds accuracy.
+    EvalConfig("structured", 180, 40, "bge-small", "minilm-l12", hybrid=True, candidates=12),
+    EvalConfig("structured", 180, 40, "bge-small", "jina-tiny", hybrid=True, candidates=12),
+    EvalConfig("structured", 180, 40, "bge-small", "jina-turbo", hybrid=True, candidates=12),
 ]
 
 
