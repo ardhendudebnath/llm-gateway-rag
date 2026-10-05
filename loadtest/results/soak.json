@@ -1,0 +1,4608 @@
+{
+  "label": "soak",
+  "generated_at": "2026-10-04T16:05:46+00:00",
+  "minutes": 60.0,
+  "users": 40,
+  "stream_weight": 4,
+  "samples": 120,
+  "api_rss_bytes_per_pod": {
+    "first_quarter": 823410278.4,
+    "last_quarter": 827614412.8,
+    "change_pct": 0.5,
+    "peak": 827824128.0
+  },
+  "api_rss_bytes_all_pods": {
+    "first_quarter": 1646820556.8,
+    "last_quarter": 1655228825.6,
+    "change_pct": 0.5,
+    "peak": 1655648256.0
+  },
+  "pod_counts": [
+    2
+  ],
+  "latency_p95_seconds": {
+    "first_quarter": 0.77,
+    "last_quarter": 1.269,
+    "change_pct": 64.7,
+    "peak": 1.473
+  },
+  "api_open_fds_per_pod": {
+    "first_quarter": 48.417,
+    "last_quarter": 51.417,
+    "change_pct": 6.2,
+    "peak": 52.0
+  },
+  "totals": {
+    "requests_total": 123157.0,
+    "errors_total": 0,
+    "degraded_total": 10006.0,
+    "shed_total": 10006.0
+  },
+  "passed": false,
+  "problems": [
+    "p95 drifted +65% (limit 25%)"
+  ],
+  "series": [
+    {
+      "t": 1791126178.4237576,
+      "api_rss_bytes": [
+        773300224.0,
+        828477440.0
+      ],
+      "api_open_fds": [
+        52.0,
+        47.0
+      ],
+      "gc_objects": [
+        6493.0,
+        1119.0,
+        92.0,
+        6784.0,
+        539.0,
+        92.0
+      ],
+      "requests_total": [
+        703.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        36.0
+      ],
+      "shed_total": [
+        36.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7840884012185756
+      ]
+    },
+    {
+      "t": 1791126210.1891594,
+      "api_rss_bytes": [
+        807510016.0,
+        831426560.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        16025.0,
+        1607.0,
+        92.0,
+        15430.0,
+        1316.0,
+        92.0
+      ],
+      "requests_total": [
+        1754.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        74.0
+      ],
+      "shed_total": [
+        74.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.759081815943683
+      ]
+    },
+    {
+      "t": 1791126241.9914186,
+      "api_rss_bytes": [
+        808886272.0,
+        833196032.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        24255.0,
+        2682.0,
+        92.0,
+        24446.0,
+        1836.0,
+        92.0
+      ],
+      "requests_total": [
+        2829.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        101.0
+      ],
+      "shed_total": [
+        101.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7464731815670194
+      ]
+    },
+    {
+      "t": 1791126272.0226388,
+      "api_rss_bytes": [
+        809279488.0,
+        833589248.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        33035.0,
+        3693.0,
+        247.0,
+        33260.0,
+        2856.0,
+        295.0
+      ],
+      "requests_total": [
+        3893.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        149.0
+      ],
+      "shed_total": [
+        149.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7510269692731486
+      ]
+    },
+    {
+      "t": 1791126303.8972871,
+      "api_rss_bytes": [
+        809672704.0,
+        834572288.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        42131.0,
+        4830.0,
+        247.0,
+        42133.0,
+        3616.0,
+        295.0
+      ],
+      "requests_total": [
+        4963.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        196.0
+      ],
+      "shed_total": [
+        196.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7417371368109131
+      ]
+    },
+    {
+      "t": 1791126335.7178712,
+      "api_rss_bytes": [
+        810065920.0,
+        834768896.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        51426.0,
+        5812.0,
+        247.0,
+        51426.0,
+        4638.0,
+        295.0
+      ],
+      "requests_total": [
+        6027.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        257.0
+      ],
+      "shed_total": [
+        257.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7453601108033229
+      ]
+    },
+    {
+      "t": 1791126367.593764,
+      "api_rss_bytes": [
+        810262528.0,
+        834768896.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        60006.0,
+        6626.0,
+        247.0,
+        61204.0,
+        5066.0,
+        295.0
+      ],
+      "requests_total": [
+        7107.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        292.0
+      ],
+      "shed_total": [
+        292.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7574870889568461
+      ]
+    },
+    {
+      "t": 1791126399.3280764,
+      "api_rss_bytes": [
+        810262528.0,
+        834768896.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        69506.0,
+        7743.0,
+        247.0,
+        69403.0,
+        6178.0,
+        295.0
+      ],
+      "requests_total": [
+        8180.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        329.0
+      ],
+      "shed_total": [
+        329.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7523390463621628
+      ]
+    },
+    {
+      "t": 1791126431.6251507,
+      "api_rss_bytes": [
+        812032000.0,
+        836341760.0
+      ],
+      "api_open_fds": [
+        53.0,
+        47.0
+      ],
+      "gc_objects": [
+        78696.0,
+        8552.0,
+        247.0,
+        77991.0,
+        7477.0,
+        295.0
+      ],
+      "requests_total": [
+        9269.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        356.0
+      ],
+      "shed_total": [
+        356.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7321627496129014
+      ]
+    },
+    {
+      "t": 1791126463.7269688,
+      "api_rss_bytes": [
+        812032000.0,
+        836341760.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        87367.0,
+        10107.0,
+        247.0,
+        87485.0,
+        8365.0,
+        295.0
+      ],
+      "requests_total": [
+        10341.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        407.0
+      ],
+      "shed_total": [
+        407.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7127243121090162
+      ]
+    },
+    {
+      "t": 1791126495.8275657,
+      "api_rss_bytes": [
+        812032000.0,
+        836341760.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        97190.0,
+        10744.0,
+        247.0,
+        96459.0,
+        9084.0,
+        295.0
+      ],
+      "requests_total": [
+        11412.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        468.0
+      ],
+      "shed_total": [
+        468.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7332035428404262
+      ]
+    },
+    {
+      "t": 1791126528.2600348,
+      "api_rss_bytes": [
+        812032000.0,
+        836734976.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        105991.0,
+        11807.0,
+        247.0,
+        105592.0,
+        9854.0,
+        597.0
+      ],
+      "requests_total": [
+        12463.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        525.0
+      ],
+      "shed_total": [
+        525.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.7531616484497569
+      ]
+    },
+    {
+      "t": 1791126560.5780022,
+      "api_rss_bytes": [
+        812032000.0,
+        836734976.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        113737.0,
+        13402.0,
+        558.0,
+        113894.0,
+        11067.0,
+        597.0
+      ],
+      "requests_total": [
+        13535.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        562.0
+      ],
+      "shed_total": [
+        562.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7584558823529404
+      ]
+    },
+    {
+      "t": 1791126593.053408,
+      "api_rss_bytes": [
+        812032000.0,
+        836931584.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        123180.0,
+        14163.0,
+        558.0,
+        122552.0,
+        11891.0,
+        597.0
+      ],
+      "requests_total": [
+        14586.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        614.0
+      ],
+      "shed_total": [
+        614.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.7616428571428564
+      ]
+    },
+    {
+      "t": 1791126625.5475485,
+      "api_rss_bytes": [
+        812032000.0,
+        837128192.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        131785.0,
+        15467.0,
+        558.0,
+        131483.0,
+        13104.0,
+        597.0
+      ],
+      "requests_total": [
+        15639.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        673.0
+      ],
+      "shed_total": [
+        673.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7820105820105817
+      ]
+    },
+    {
+      "t": 1791126658.176381,
+      "api_rss_bytes": [
+        812032000.0,
+        837128192.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        141385.0,
+        16194.0,
+        558.0,
+        141316.0,
+        13628.0,
+        597.0
+      ],
+      "requests_total": [
+        16710.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        734.0
+      ],
+      "shed_total": [
+        734.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7824412532637076
+      ]
+    },
+    {
+      "t": 1791126690.731347,
+      "api_rss_bytes": [
+        812228608.0,
+        837521408.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        150021.0,
+        17664.0,
+        558.0,
+        150579.0,
+        14587.0,
+        597.0
+      ],
+      "requests_total": [
+        17776.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        776.0
+      ],
+      "shed_total": [
+        776.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        0.7724999109731555
+      ]
+    },
+    {
+      "t": 1791126720.774924,
+      "api_rss_bytes": [
+        812425216.0,
+        837521408.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        158881.0,
+        18758.0,
+        558.0,
+        160356.0,
+        15443.0,
+        597.0
+      ],
+      "requests_total": [
+        18840.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        827.0
+      ],
+      "shed_total": [
+        827.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        0.769170984455958
+      ]
+    },
+    {
+      "t": 1791126752.8048975,
+      "api_rss_bytes": [
+        812621824.0,
+        837521408.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        167815.0,
+        19700.0,
+        558.0,
+        169210.0,
+        16247.0,
+        597.0
+      ],
+      "requests_total": [
+        19909.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        873.0
+      ],
+      "shed_total": [
+        873.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7681636740059081
+      ]
+    },
+    {
+      "t": 1791126785.1302752,
+      "api_rss_bytes": [
+        812621824.0,
+        837521408.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        177301.0,
+        20153.0,
+        558.0,
+        177924.0,
+        17206.0,
+        788.0
+      ],
+      "requests_total": [
+        20972.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        924.0
+      ],
+      "shed_total": [
+        924.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7664614636682605
+      ]
+    },
+    {
+      "t": 1791126817.43737,
+      "api_rss_bytes": [
+        812621824.0,
+        837718016.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        186045.0,
+        21227.0,
+        799.0,
+        186489.0,
+        17735.0,
+        788.0
+      ],
+      "requests_total": [
+        22041.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        969.0
+      ],
+      "shed_total": [
+        969.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7715371171623087
+      ]
+    },
+    {
+      "t": 1791126849.747308,
+      "api_rss_bytes": [
+        812621824.0,
+        837718016.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        195204.0,
+        21987.0,
+        799.0,
+        195164.0,
+        18771.0,
+        788.0
+      ],
+      "requests_total": [
+        23099.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1020.0
+      ],
+      "shed_total": [
+        1020.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.7742959377963343
+      ]
+    },
+    {
+      "t": 1791126882.0812037,
+      "api_rss_bytes": [
+        812818432.0,
+        837914624.0
+      ],
+      "api_open_fds": [
+        50.0,
+        48.0
+      ],
+      "gc_objects": [
+        204507.0,
+        22539.0,
+        799.0,
+        204604.0,
+        19558.0,
+        788.0
+      ],
+      "requests_total": [
+        24150.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1089.0
+      ],
+      "shed_total": [
+        1089.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7926226745525702
+      ]
+    },
+    {
+      "t": 1791126914.3981853,
+      "api_rss_bytes": [
+        813015040.0,
+        837914624.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        212940.0,
+        23824.0,
+        799.0,
+        214504.0,
+        20127.0,
+        788.0
+      ],
+      "requests_total": [
+        25210.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1149.0
+      ],
+      "shed_total": [
+        1149.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7989837398373973
+      ]
+    },
+    {
+      "t": 1791126946.761457,
+      "api_rss_bytes": [
+        813211648.0,
+        837914624.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        221573.0,
+        24981.0,
+        799.0,
+        222841.0,
+        21711.0,
+        788.0
+      ],
+      "requests_total": [
+        26271.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1210.0
+      ],
+      "shed_total": [
+        1210.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.8131367292225202
+      ]
+    },
+    {
+      "t": 1791126979.0713353,
+      "api_rss_bytes": [
+        813211648.0,
+        837914624.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        230923.0,
+        25930.0,
+        799.0,
+        231792.0,
+        22603.0,
+        788.0
+      ],
+      "requests_total": [
+        27315.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1284.0
+      ],
+      "shed_total": [
+        1284.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.8149449035812673
+      ]
+    },
+    {
+      "t": 1791127011.4106839,
+      "api_rss_bytes": [
+        813211648.0,
+        838111232.0
+      ],
+      "api_open_fds": [
+        50.0,
+        48.0
+      ],
+      "gc_objects": [
+        239508.0,
+        26981.0,
+        799.0,
+        240358.0,
+        24003.0,
+        788.0
+      ],
+      "requests_total": [
+        28359.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1351.0
+      ],
+      "shed_total": [
+        1351.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.8207175190806875
+      ]
+    },
+    {
+      "t": 1791127043.7144,
+      "api_rss_bytes": [
+        813211648.0,
+        838111232.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        248250.0,
+        27900.0,
+        799.0,
+        249042.0,
+        25229.0,
+        788.0
+      ],
+      "requests_total": [
+        29406.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1416.0
+      ],
+      "shed_total": [
+        1416.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.8049570326794908
+      ]
+    },
+    {
+      "t": 1791127076.0528672,
+      "api_rss_bytes": [
+        813211648.0,
+        838111232.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        257187.0,
+        28574.0,
+        1447.0,
+        257610.0,
+        26334.0,
+        1043.0
+      ],
+      "requests_total": [
+        30459.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1466.0
+      ],
+      "shed_total": [
+        1466.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.8086618558659343
+      ]
+    },
+    {
+      "t": 1791127108.2592442,
+      "api_rss_bytes": [
+        813211648.0,
+        838111232.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        266069.0,
+        29699.0,
+        1447.0,
+        266090.0,
+        27212.0,
+        1043.0
+      ],
+      "requests_total": [
+        31510.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1516.0
+      ],
+      "shed_total": [
+        1516.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.7829287192748884
+      ]
+    },
+    {
+      "t": 1791127140.7005832,
+      "api_rss_bytes": [
+        813211648.0,
+        838504448.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        274528.0,
+        30628.0,
+        1447.0,
+        275092.0,
+        28458.0,
+        1043.0
+      ],
+      "requests_total": [
+        32561.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1584.0
+      ],
+      "shed_total": [
+        1584.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.7956946816620485
+      ]
+    },
+    {
+      "t": 1791127172.9625072,
+      "api_rss_bytes": [
+        813211648.0,
+        838504448.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        283205.0,
+        31754.0,
+        1447.0,
+        283701.0,
+        29085.0,
+        1043.0
+      ],
+      "requests_total": [
+        33629.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1640.0
+      ],
+      "shed_total": [
+        1640.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.7910459398839165
+      ]
+    },
+    {
+      "t": 1791127202.9912539,
+      "api_rss_bytes": [
+        814587904.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        292637.0,
+        32681.0,
+        1447.0,
+        292254.0,
+        30605.0,
+        1043.0
+      ],
+      "requests_total": [
+        34700.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1699.0
+      ],
+      "shed_total": [
+        1699.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.7768168604651162
+      ]
+    },
+    {
+      "t": 1791127235.3012865,
+      "api_rss_bytes": [
+        814587904.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        300781.0,
+        34402.0,
+        1447.0,
+        300738.0,
+        31640.0,
+        1043.0
+      ],
+      "requests_total": [
+        35750.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1761.0
+      ],
+      "shed_total": [
+        1761.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        0.7703927492447122
+      ]
+    },
+    {
+      "t": 1791127267.742462,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        310065.0,
+        35047.0,
+        1447.0,
+        309273.0,
+        32599.0,
+        1043.0
+      ],
+      "requests_total": [
+        36764.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1854.0
+      ],
+      "shed_total": [
+        1854.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.8164287437449964
+      ]
+    },
+    {
+      "t": 1791127300.1760473,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        318747.0,
+        36161.0,
+        1447.0,
+        318383.0,
+        33340.0,
+        1043.0
+      ],
+      "requests_total": [
+        37812.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1932.0
+      ],
+      "shed_total": [
+        1932.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        0.8874492215854585
+      ]
+    },
+    {
+      "t": 1791127332.5481758,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        327496.0,
+        36688.0,
+        1652.0,
+        326789.0,
+        34095.0,
+        1043.0
+      ],
+      "requests_total": [
+        38847.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        1997.0
+      ],
+      "shed_total": [
+        1997.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.9669996712836912
+      ]
+    },
+    {
+      "t": 1791127364.8970802,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        336932.0,
+        37290.0,
+        1652.0,
+        335988.0,
+        34671.0,
+        1340.0
+      ],
+      "requests_total": [
+        39880.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2087.0
+      ],
+      "shed_total": [
+        2087.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        0.9701754385964911
+      ]
+    },
+    {
+      "t": 1791127397.2483804,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        345891.0,
+        38024.0,
+        1652.0,
+        344053.0,
+        35470.0,
+        1340.0
+      ],
+      "requests_total": [
+        40903.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2174.0
+      ],
+      "shed_total": [
+        2174.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        0.998592052029508
+      ]
+    },
+    {
+      "t": 1791127429.6298254,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        354261.0,
+        39217.0,
+        1652.0,
+        352908.0,
+        36491.0,
+        1340.0
+      ],
+      "requests_total": [
+        41937.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2264.0
+      ],
+      "shed_total": [
+        2264.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.9968743482804658
+      ]
+    },
+    {
+      "t": 1791127461.9318833,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        362668.0,
+        40409.0,
+        1652.0,
+        360979.0,
+        37525.0,
+        1340.0
+      ],
+      "requests_total": [
+        42967.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2337.0
+      ],
+      "shed_total": [
+        2337.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.9786069651741288
+      ]
+    },
+    {
+      "t": 1791127494.4173524,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        50.0,
+        48.0
+      ],
+      "gc_objects": [
+        371317.0,
+        41038.0,
+        1652.0,
+        369690.0,
+        38320.0,
+        1340.0
+      ],
+      "requests_total": [
+        43978.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2445.0
+      ],
+      "shed_total": [
+        2445.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        0.970653131877184
+      ]
+    },
+    {
+      "t": 1791127526.7646742,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        49.0,
+        47.0
+      ],
+      "gc_objects": [
+        379830.0,
+        41920.0,
+        1652.0,
+        378157.0,
+        38993.0,
+        1340.0
+      ],
+      "requests_total": [
+        44994.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2535.0
+      ],
+      "shed_total": [
+        2535.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        0.9872641509433959
+      ]
+    },
+    {
+      "t": 1791127559.245936,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        49.0,
+        48.0
+      ],
+      "gc_objects": [
+        388593.0,
+        42693.0,
+        1652.0,
+        386506.0,
+        39681.0,
+        1340.0
+      ],
+      "requests_total": [
+        46084.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2649.0
+      ],
+      "shed_total": [
+        2649.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        1.1212810374267175
+      ]
+    },
+    {
+      "t": 1791127591.763705,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        51.0,
+        48.0
+      ],
+      "gc_objects": [
+        397051.0,
+        43647.0,
+        1846.0,
+        397099.0,
+        40829.0,
+        1532.0
+      ],
+      "requests_total": [
+        47096.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2751.0
+      ],
+      "shed_total": [
+        2751.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.218605841897764
+      ]
+    },
+    {
+      "t": 1791127621.8829596,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        51.0,
+        48.0
+      ],
+      "gc_objects": [
+        405840.0,
+        44645.0,
+        1846.0,
+        405930.0,
+        41471.0,
+        1532.0
+      ],
+      "requests_total": [
+        48117.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2857.0
+      ],
+      "shed_total": [
+        2857.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2880604067501142
+      ]
+    },
+    {
+      "t": 1791127654.4372056,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        413859.0,
+        45763.0,
+        1846.0,
+        413901.0,
+        42531.0,
+        1532.0
+      ],
+      "requests_total": [
+        49136.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        2951.0
+      ],
+      "shed_total": [
+        2951.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.2815822158651846
+      ]
+    },
+    {
+      "t": 1791127685.9474885,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        51.0,
+        47.0
+      ],
+      "gc_objects": [
+        422151.0,
+        46828.0,
+        1846.0,
+        423095.0,
+        43744.0,
+        1532.0
+      ],
+      "requests_total": [
+        50161.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3039.0
+      ],
+      "shed_total": [
+        3039.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2552745239217296
+      ]
+    },
+    {
+      "t": 1791127718.1964107,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        51.0,
+        48.0
+      ],
+      "gc_objects": [
+        432409.0,
+        47849.0,
+        1846.0,
+        431091.0,
+        44687.0,
+        1532.0
+      ],
+      "requests_total": [
+        51270.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3137.0
+      ],
+      "shed_total": [
+        3137.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.2324334456831745
+      ]
+    },
+    {
+      "t": 1791127750.1896844,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        50.0,
+        48.0
+      ],
+      "gc_objects": [
+        440954.0,
+        48742.0,
+        1846.0,
+        439570.0,
+        45356.0,
+        1532.0
+      ],
+      "requests_total": [
+        52278.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3231.0
+      ],
+      "shed_total": [
+        3231.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2066820276497696
+      ]
+    },
+    {
+      "t": 1791127782.1563747,
+      "api_rss_bytes": [
+        814194688.0,
+        838897664.0
+      ],
+      "api_open_fds": [
+        50.0,
+        47.0
+      ],
+      "gc_objects": [
+        448393.0,
+        49722.0,
+        1846.0,
+        447289.0,
+        46664.0,
+        1532.0
+      ],
+      "requests_total": [
+        53242.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3332.0
+      ],
+      "shed_total": [
+        3332.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3003348214285728
+      ]
+    },
+    {
+      "t": 1791127814.2466135,
+      "api_rss_bytes": [
+        814194688.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        54.0,
+        48.0
+      ],
+      "gc_objects": [
+        455637.0,
+        50668.0,
+        2103.0,
+        454868.0,
+        47912.0,
+        1532.0
+      ],
+      "requests_total": [
+        54191.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3435.0
+      ],
+      "shed_total": [
+        3435.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3609586073482067
+      ]
+    },
+    {
+      "t": 1791127846.3015406,
+      "api_rss_bytes": [
+        814194688.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        463484.0,
+        51563.0,
+        2103.0,
+        462586.0,
+        48732.0,
+        1915.0
+      ],
+      "requests_total": [
+        55119.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3562.0
+      ],
+      "shed_total": [
+        3562.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.4728986062314675
+      ]
+    },
+    {
+      "t": 1791127878.1789339,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        472249.0,
+        52629.0,
+        2103.0,
+        471514.0,
+        49366.0,
+        1915.0
+      ],
+      "requests_total": [
+        56138.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3659.0
+      ],
+      "shed_total": [
+        3659.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.4157239819004497
+      ]
+    },
+    {
+      "t": 1791127910.0736027,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        480536.0,
+        53472.0,
+        2103.0,
+        480004.0,
+        49843.0,
+        1915.0
+      ],
+      "requests_total": [
+        57127.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3755.0
+      ],
+      "shed_total": [
+        3755.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.4130036358306843
+      ]
+    },
+    {
+      "t": 1791127940.1823153,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        489124.0,
+        54180.0,
+        2103.0,
+        488105.0,
+        50878.0,
+        1915.0
+      ],
+      "requests_total": [
+        58125.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3855.0
+      ],
+      "shed_total": [
+        3855.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.4059927384903301
+      ]
+    },
+    {
+      "t": 1791127972.1764948,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        497831.0,
+        54781.0,
+        2103.0,
+        496474.0,
+        51418.0,
+        1915.0
+      ],
+      "requests_total": [
+        59152.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        3924.0
+      ],
+      "shed_total": [
+        3924.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.3084430328872063
+      ]
+    },
+    {
+      "t": 1791128004.157763,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        506007.0,
+        55706.0,
+        2103.0,
+        505282.0,
+        52087.0,
+        1915.0
+      ],
+      "requests_total": [
+        60151.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4029.0
+      ],
+      "shed_total": [
+        4029.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2927631578947374
+      ]
+    },
+    {
+      "t": 1791128036.1663377,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        514403.0,
+        56237.0,
+        2585.0,
+        514073.0,
+        53013.0,
+        1915.0
+      ],
+      "requests_total": [
+        61158.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4134.0
+      ],
+      "shed_total": [
+        4134.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2643342116930885
+      ]
+    },
+    {
+      "t": 1791128068.2581449,
+      "api_rss_bytes": [
+        814391296.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        522495.0,
+        57178.0,
+        2585.0,
+        522278.0,
+        53750.0,
+        2348.0
+      ],
+      "requests_total": [
+        62170.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4233.0
+      ],
+      "shed_total": [
+        4233.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2785232871812118
+      ]
+    },
+    {
+      "t": 1791128100.3196654,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        530437.0,
+        58309.0,
+        2585.0,
+        530188.0,
+        54833.0,
+        2348.0
+      ],
+      "requests_total": [
+        63192.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4306.0
+      ],
+      "shed_total": [
+        4306.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2908695652173914
+      ]
+    },
+    {
+      "t": 1791128132.345754,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        539688.0,
+        58710.0,
+        2585.0,
+        538562.0,
+        55617.0,
+        2348.0
+      ],
+      "requests_total": [
+        64216.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4400.0
+      ],
+      "shed_total": [
+        4400.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2474371682250536
+      ]
+    },
+    {
+      "t": 1791128164.2533982,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        548486.0,
+        59646.0,
+        2585.0,
+        547751.0,
+        56650.0,
+        2348.0
+      ],
+      "requests_total": [
+        65229.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4520.0
+      ],
+      "shed_total": [
+        4520.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2790404807351181
+      ]
+    },
+    {
+      "t": 1791128196.1968946,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        557504.0,
+        60578.0,
+        2585.0,
+        557002.0,
+        57311.0,
+        2348.0
+      ],
+      "requests_total": [
+        66245.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4614.0
+      ],
+      "shed_total": [
+        4614.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2461895330549222
+      ]
+    },
+    {
+      "t": 1791128227.6465073,
+      "api_rss_bytes": [
+        814587904.0,
+        839094272.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        565199.0,
+        61831.0,
+        2585.0,
+        564945.0,
+        58451.0,
+        2348.0
+      ],
+      "requests_total": [
+        67259.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4697.0
+      ],
+      "shed_total": [
+        4697.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2324660633484168
+      ]
+    },
+    {
+      "t": 1791128259.2504952,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        573882.0,
+        62809.0,
+        2585.0,
+        572894.0,
+        59440.0,
+        2348.0
+      ],
+      "requests_total": [
+        68271.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4787.0
+      ],
+      "shed_total": [
+        4787.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2469550815772168
+      ]
+    },
+    {
+      "t": 1791128290.9180417,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        583429.0,
+        62959.0,
+        2786.0,
+        580573.0,
+        60513.0,
+        2613.0
+      ],
+      "requests_total": [
+        69286.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4876.0
+      ],
+      "shed_total": [
+        4876.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2554638423544726
+      ]
+    },
+    {
+      "t": 1791128322.6095314,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        592043.0,
+        64042.0,
+        2786.0,
+        588514.0,
+        61296.0,
+        2613.0
+      ],
+      "requests_total": [
+        70289.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        4978.0
+      ],
+      "shed_total": [
+        4978.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3188290173815815
+      ]
+    },
+    {
+      "t": 1791128354.3106499,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        600294.0,
+        64910.0,
+        2786.0,
+        597197.0,
+        62524.0,
+        2613.0
+      ],
+      "requests_total": [
+        71291.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5078.0
+      ],
+      "shed_total": [
+        5078.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.3443756158343814
+      ]
+    },
+    {
+      "t": 1791128386.0341918,
+      "api_rss_bytes": [
+        814587904.0,
+        839290880.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        608603.0,
+        65849.0,
+        2786.0,
+        605886.0,
+        63377.0,
+        2613.0
+      ],
+      "requests_total": [
+        72310.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5174.0
+      ],
+      "shed_total": [
+        5174.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3545469448577743
+      ]
+    },
+    {
+      "t": 1791128416.124243,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        617027.0,
+        66725.0,
+        2786.0,
+        614117.0,
+        64354.0,
+        2613.0
+      ],
+      "requests_total": [
+        73325.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5267.0
+      ],
+      "shed_total": [
+        5267.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        1.2822368421052608
+      ]
+    },
+    {
+      "t": 1791128447.8409784,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        624860.0,
+        67473.0,
+        2786.0,
+        621885.0,
+        65302.0,
+        2613.0
+      ],
+      "requests_total": [
+        74333.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5353.0
+      ],
+      "shed_total": [
+        5353.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2564744438001583
+      ]
+    },
+    {
+      "t": 1791128479.6309729,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        633322.0,
+        68864.0,
+        2786.0,
+        630703.0,
+        65545.0,
+        2613.0
+      ],
+      "requests_total": [
+        75327.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5459.0
+      ],
+      "shed_total": [
+        5459.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        1.266333333333332
+      ]
+    },
+    {
+      "t": 1791128511.4395063,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        642234.0,
+        69484.0,
+        2786.0,
+        639126.0,
+        66566.0,
+        2613.0
+      ],
+      "requests_total": [
+        76353.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5543.0
+      ],
+      "shed_total": [
+        5543.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.1830582437648252
+      ]
+    },
+    {
+      "t": 1791128543.1521368,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        650433.0,
+        70421.0,
+        3021.0,
+        647533.0,
+        67440.0,
+        2958.0
+      ],
+      "requests_total": [
+        77372.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5624.0
+      ],
+      "shed_total": [
+        5624.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.187855187026564
+      ]
+    },
+    {
+      "t": 1791128574.946269,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        659155.0,
+        71245.0,
+        3021.0,
+        656503.0,
+        67883.0,
+        2958.0
+      ],
+      "requests_total": [
+        78370.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5736.0
+      ],
+      "shed_total": [
+        5736.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.1739273620012702
+      ]
+    },
+    {
+      "t": 1791128605.774563,
+      "api_rss_bytes": [
+        814587904.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        667394.0,
+        72075.0,
+        3021.0,
+        665232.0,
+        69099.0,
+        2958.0
+      ],
+      "requests_total": [
+        79376.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5835.0
+      ],
+      "shed_total": [
+        5835.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.1990654205607454
+      ]
+    },
+    {
+      "t": 1791128637.42342,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        675662.0,
+        72863.0,
+        3021.0,
+        674003.0,
+        70086.0,
+        2958.0
+      ],
+      "requests_total": [
+        80390.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        5943.0
+      ],
+      "shed_total": [
+        5943.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3115447711343853
+      ]
+    },
+    {
+      "t": 1791128669.2937574,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        684845.0,
+        73769.0,
+        3021.0,
+        681890.0,
+        71543.0,
+        2958.0
+      ],
+      "requests_total": [
+        81399.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6032.0
+      ],
+      "shed_total": [
+        6032.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.3191489361702122
+      ]
+    },
+    {
+      "t": 1791128701.3141541,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        693726.0,
+        74846.0,
+        3021.0,
+        690643.0,
+        72542.0,
+        2958.0
+      ],
+      "requests_total": [
+        82403.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6140.0
+      ],
+      "shed_total": [
+        6140.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2762128069650407
+      ]
+    },
+    {
+      "t": 1791128733.1520667,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        702751.0,
+        75718.0,
+        3021.0,
+        699634.0,
+        73477.0,
+        2958.0
+      ],
+      "requests_total": [
+        83403.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6241.0
+      ],
+      "shed_total": [
+        6241.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        1.329333333333331
+      ]
+    },
+    {
+      "t": 1791128765.043179,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        710903.0,
+        76927.0,
+        3159.0,
+        707919.0,
+        74622.0,
+        2958.0
+      ],
+      "requests_total": [
+        84412.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6331.0
+      ],
+      "shed_total": [
+        6331.0
+      ],
+      "inference_waiting": [
+        7.0
+      ],
+      "latency_p95": [
+        1.2993195256551056
+      ]
+    },
+    {
+      "t": 1791128796.9097688,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        719679.0,
+        77703.0,
+        3159.0,
+        715992.0,
+        75811.0,
+        3309.0
+      ],
+      "requests_total": [
+        85426.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6439.0
+      ],
+      "shed_total": [
+        6439.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3121076233183833
+      ]
+    },
+    {
+      "t": 1791128828.7387147,
+      "api_rss_bytes": [
+        814587904.0,
+        840273920.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        727979.0,
+        78879.0,
+        3159.0,
+        724475.0,
+        76653.0,
+        3309.0
+      ],
+      "requests_total": [
+        86422.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6550.0
+      ],
+      "shed_total": [
+        6550.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.292630344187339
+      ]
+    },
+    {
+      "t": 1791128860.518212,
+      "api_rss_bytes": [
+        814391296.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        737133.0,
+        79750.0,
+        3159.0,
+        732601.0,
+        77900.0,
+        3309.0
+      ],
+      "requests_total": [
+        87436.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6641.0
+      ],
+      "shed_total": [
+        6641.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.3051705471393855
+      ]
+    },
+    {
+      "t": 1791128890.6082616,
+      "api_rss_bytes": [
+        814391296.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        745107.0,
+        81019.0,
+        3159.0,
+        741034.0,
+        78783.0,
+        3309.0
+      ],
+      "requests_total": [
+        88464.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6725.0
+      ],
+      "shed_total": [
+        6725.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.3424999999999974
+      ]
+    },
+    {
+      "t": 1791128921.87081,
+      "api_rss_bytes": [
+        814391296.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        754483.0,
+        81634.0,
+        3159.0,
+        748778.0,
+        79673.0,
+        3309.0
+      ],
+      "requests_total": [
+        89484.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6812.0
+      ],
+      "shed_total": [
+        6812.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2334841628959285
+      ]
+    },
+    {
+      "t": 1791128951.9388845,
+      "api_rss_bytes": [
+        814391296.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        763812.0,
+        82141.0,
+        3159.0,
+        757544.0,
+        80404.0,
+        3309.0
+      ],
+      "requests_total": [
+        90502.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6892.0
+      ],
+      "shed_total": [
+        6892.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2561946902654868
+      ]
+    },
+    {
+      "t": 1791128982.0493505,
+      "api_rss_bytes": [
+        814391296.0,
+        840077312.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        772461.0,
+        82950.0,
+        3159.0,
+        766155.0,
+        81004.0,
+        3309.0
+      ],
+      "requests_total": [
+        91519.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        6986.0
+      ],
+      "shed_total": [
+        6986.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.2418170330746459
+      ]
+    },
+    {
+      "t": 1791129012.1466186,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        781063.0,
+        83618.0,
+        3386.0,
+        774284.0,
+        81877.0,
+        3467.0
+      ],
+      "requests_total": [
+        92533.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7065.0
+      ],
+      "shed_total": [
+        7065.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2019012585171172
+      ]
+    },
+    {
+      "t": 1791129042.2212377,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        790167.0,
+        84250.0,
+        3386.0,
+        782908.0,
+        82527.0,
+        3467.0
+      ],
+      "requests_total": [
+        93552.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7158.0
+      ],
+      "shed_total": [
+        7158.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2588305199090033
+      ]
+    },
+    {
+      "t": 1791129072.278707,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        798580.0,
+        85271.0,
+        3386.0,
+        791095.0,
+        83905.0,
+        3467.0
+      ],
+      "requests_total": [
+        94561.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7265.0
+      ],
+      "shed_total": [
+        7265.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.257234042553193
+      ]
+    },
+    {
+      "t": 1791129102.353403,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        807778.0,
+        85950.0,
+        3386.0,
+        799004.0,
+        84542.0,
+        3467.0
+      ],
+      "requests_total": [
+        95607.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7350.0
+      ],
+      "shed_total": [
+        7350.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2233689193278465
+      ]
+    },
+    {
+      "t": 1791129132.4441411,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        816782.0,
+        87103.0,
+        3386.0,
+        808102.0,
+        85052.0,
+        3467.0
+      ],
+      "requests_total": [
+        96640.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7439.0
+      ],
+      "shed_total": [
+        7439.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2032902441097804
+      ]
+    },
+    {
+      "t": 1791129162.5234122,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        825937.0,
+        87525.0,
+        3386.0,
+        816710.0,
+        85960.0,
+        3467.0
+      ],
+      "requests_total": [
+        97655.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7534.0
+      ],
+      "shed_total": [
+        7534.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.165609908450854
+      ]
+    },
+    {
+      "t": 1791129192.5959811,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        834555.0,
+        88491.0,
+        3386.0,
+        824420.0,
+        87121.0,
+        3467.0
+      ],
+      "requests_total": [
+        98672.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7624.0
+      ],
+      "shed_total": [
+        7624.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.1879999999999988
+      ]
+    },
+    {
+      "t": 1791129222.685539,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        843107.0,
+        89414.0,
+        3386.0,
+        834090.0,
+        88200.0,
+        3467.0
+      ],
+      "requests_total": [
+        99794.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7707.0
+      ],
+      "shed_total": [
+        7707.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.1517123287671192
+      ]
+    },
+    {
+      "t": 1791129252.7586844,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        851290.0,
+        90281.0,
+        3649.0,
+        841622.0,
+        89634.0,
+        3585.0
+      ],
+      "requests_total": [
+        100825.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7788.0
+      ],
+      "shed_total": [
+        7788.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.1179577464788721
+      ]
+    },
+    {
+      "t": 1791129282.8634708,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        860434.0,
+        90576.0,
+        3649.0,
+        849881.0,
+        90800.0,
+        3585.0
+      ],
+      "requests_total": [
+        101842.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7886.0
+      ],
+      "shed_total": [
+        7886.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.1336783846909229
+      ]
+    },
+    {
+      "t": 1791129312.9219673,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        869209.0,
+        91510.0,
+        3649.0,
+        858470.0,
+        92218.0,
+        3585.0
+      ],
+      "requests_total": [
+        102868.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        7994.0
+      ],
+      "shed_total": [
+        7994.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.0607317073170732
+      ]
+    },
+    {
+      "t": 1791129343.0072093,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        877418.0,
+        92664.0,
+        3649.0,
+        865992.0,
+        93209.0,
+        3585.0
+      ],
+      "requests_total": [
+        103893.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8069.0
+      ],
+      "shed_total": [
+        8069.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.1251168224299062
+      ]
+    },
+    {
+      "t": 1791129373.0713875,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        885734.0,
+        93534.0,
+        3649.0,
+        874399.0,
+        94772.0,
+        3585.0
+      ],
+      "requests_total": [
+        104914.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8157.0
+      ],
+      "shed_total": [
+        8157.0
+      ],
+      "inference_waiting": [
+        4.0
+      ],
+      "latency_p95": [
+        1.2428238039673303
+      ]
+    },
+    {
+      "t": 1791129403.1361518,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        895542.0,
+        94565.0,
+        3649.0,
+        882937.0,
+        95539.0,
+        3585.0
+      ],
+      "requests_total": [
+        106016.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8263.0
+      ],
+      "shed_total": [
+        8263.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.292899029435975
+      ]
+    },
+    {
+      "t": 1791129433.2268002,
+      "api_rss_bytes": [
+        814391296.0,
+        841256960.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        904137.0,
+        95574.0,
+        3649.0,
+        891260.0,
+        96584.0,
+        3585.0
+      ],
+      "requests_total": [
+        107042.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8342.0
+      ],
+      "shed_total": [
+        8342.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.2822600861992748
+      ]
+    },
+    {
+      "t": 1791129463.3293128,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        912884.0,
+        96641.0,
+        3649.0,
+        899977.0,
+        96970.0,
+        3585.0
+      ],
+      "requests_total": [
+        108048.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8451.0
+      ],
+      "shed_total": [
+        8451.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.2677215189873396
+      ]
+    },
+    {
+      "t": 1791129493.433152,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        921254.0,
+        97833.0,
+        3883.0,
+        908310.0,
+        98154.0,
+        3888.0
+      ],
+      "requests_total": [
+        109059.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8556.0
+      ],
+      "shed_total": [
+        8556.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2249999999999939
+      ]
+    },
+    {
+      "t": 1791129523.5283647,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        930516.0,
+        98522.0,
+        3883.0,
+        916599.0,
+        99182.0,
+        3888.0
+      ],
+      "requests_total": [
+        110062.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8675.0
+      ],
+      "shed_total": [
+        8675.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.262660918192812
+      ]
+    },
+    {
+      "t": 1791129553.6446328,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        939428.0,
+        99504.0,
+        3883.0,
+        925354.0,
+        99986.0,
+        3888.0
+      ],
+      "requests_total": [
+        111067.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8788.0
+      ],
+      "shed_total": [
+        8788.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        1.3205102040816306
+      ]
+    },
+    {
+      "t": 1791129583.7266448,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        948048.0,
+        100582.0,
+        3883.0,
+        934442.0,
+        100453.0,
+        3888.0
+      ],
+      "requests_total": [
+        112080.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        8893.0
+      ],
+      "shed_total": [
+        8893.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.368261718749999
+      ]
+    },
+    {
+      "t": 1791129613.7831333,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        957091.0,
+        101332.0,
+        3883.0,
+        943936.0,
+        101015.0,
+        3888.0
+      ],
+      "requests_total": [
+        113082.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9007.0
+      ],
+      "shed_total": [
+        9007.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.3819468651935722
+      ]
+    },
+    {
+      "t": 1791129643.87583,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        966063.0,
+        101995.0,
+        3883.0,
+        952153.0,
+        101471.0,
+        3888.0
+      ],
+      "requests_total": [
+        114080.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9106.0
+      ],
+      "shed_total": [
+        9106.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.3839768339768321
+      ]
+    },
+    {
+      "t": 1791129674.0175543,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        974914.0,
+        102824.0,
+        3883.0,
+        959566.0,
+        102797.0,
+        3888.0
+      ],
+      "requests_total": [
+        115091.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9198.0
+      ],
+      "shed_total": [
+        9198.0
+      ],
+      "inference_waiting": [
+        3.0
+      ],
+      "latency_p95": [
+        1.4122180451127786
+      ]
+    },
+    {
+      "t": 1791129704.1312907,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        983415.0,
+        103735.0,
+        3883.0,
+        968040.0,
+        103726.0,
+        4063.0
+      ],
+      "requests_total": [
+        116114.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9303.0
+      ],
+      "shed_total": [
+        9303.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.4047169811320757
+      ]
+    },
+    {
+      "t": 1791129734.2174911,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        991392.0,
+        105196.0,
+        3993.0,
+        975725.0,
+        104825.0,
+        4063.0
+      ],
+      "requests_total": [
+        117102.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9392.0
+      ],
+      "shed_total": [
+        9392.0
+      ],
+      "inference_waiting": [
+        4.0
+      ],
+      "latency_p95": [
+        1.3608272417268257
+      ]
+    },
+    {
+      "t": 1791129764.3253107,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        49.0
+      ],
+      "gc_objects": [
+        1000045.0,
+        106089.0,
+        3993.0,
+        984743.0,
+        105209.0,
+        4063.0
+      ],
+      "requests_total": [
+        118102.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9509.0
+      ],
+      "shed_total": [
+        9509.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.3484070127551848
+      ]
+    },
+    {
+      "t": 1791129794.4219465,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        1009048.0,
+        106970.0,
+        3993.0,
+        993050.0,
+        106393.0,
+        4063.0
+      ],
+      "requests_total": [
+        119104.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9623.0
+      ],
+      "shed_total": [
+        9623.0
+      ],
+      "inference_waiting": [
+        1.0
+      ],
+      "latency_p95": [
+        1.35928596243453
+      ]
+    },
+    {
+      "t": 1791129824.537409,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        54.0,
+        50.0
+      ],
+      "gc_objects": [
+        1017353.0,
+        107545.0,
+        3993.0,
+        1001773.0,
+        106797.0,
+        4063.0
+      ],
+      "requests_total": [
+        120118.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9735.0
+      ],
+      "shed_total": [
+        9735.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.3390120967741923
+      ]
+    },
+    {
+      "t": 1791129854.6532903,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        1025787.0,
+        108151.0,
+        3993.0,
+        1009817.0,
+        107862.0,
+        4063.0
+      ],
+      "requests_total": [
+        121118.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9831.0
+      ],
+      "shed_total": [
+        9831.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.3400594693034438
+      ]
+    },
+    {
+      "t": 1791129884.7652133,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        49.0
+      ],
+      "gc_objects": [
+        1034262.0,
+        108859.0,
+        3993.0,
+        1018816.0,
+        108377.0,
+        4063.0
+      ],
+      "requests_total": [
+        122131.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        9925.0
+      ],
+      "shed_total": [
+        9925.0
+      ],
+      "inference_waiting": [
+        2.0
+      ],
+      "latency_p95": [
+        1.3138327401498544
+      ]
+    },
+    {
+      "t": 1791129914.853094,
+      "api_rss_bytes": [
+        813998080.0,
+        840863744.0
+      ],
+      "api_open_fds": [
+        53.0,
+        50.0
+      ],
+      "gc_objects": [
+        1042204.0,
+        109872.0,
+        3993.0,
+        1027250.0,
+        109386.0,
+        4063.0
+      ],
+      "requests_total": [
+        123157.0
+      ],
+      "errors_total": [],
+      "circuits_open": [
+        0.0
+      ],
+      "degraded_total": [
+        10006.0
+      ],
+      "shed_total": [
+        10006.0
+      ],
+      "inference_waiting": [
+        0.0
+      ],
+      "latency_p95": [
+        1.2672680173346205
+      ]
+    }
+  ],
+  "verdict_recomputed": "Verdict re-derived from the same samples after a latency-drift check was added to soak.py; the original run reported passed=true because only memory, errors and descriptors were checked."
+}

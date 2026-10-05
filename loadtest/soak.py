@@ -81,9 +81,15 @@ def sample(prometheus: str) -> dict:
     return row
 
 
-def drift(samples: list[dict], name: str) -> dict | None:
-    """First-quarter against last-quarter, which is what a slope looks like in a summary."""
-    series = [sum(s[name]) for s in samples if s.get(name)]
+def drift(samples: list[dict], name: str, per_pod: bool = False) -> dict | None:
+    """First-quarter against last-quarter, which is what a slope looks like in a summary.
+
+    `per_pod` averages across pods instead of summing them. It matters for anything that belongs
+    to a process rather than to the cluster: summing resident memory would report an autoscaler
+    adding a pod as a memory leak, and a pod being replaced as a fix.
+    """
+    reduce = statistics.fmean if per_pod else sum
+    series = [reduce(s[name]) for s in samples if s.get(name)]
     if len(series) < 4:
         return None
     quarter = max(len(series) // 4, 1)
@@ -107,6 +113,13 @@ def main() -> int:
     parser.add_argument("--sample-seconds", type=float, default=30)
     parser.add_argument("--stream-weight", type=int, default=4, help="include streamed requests")
     parser.add_argument("--rss-growth-limit-pct", type=float, default=15.0)
+    parser.add_argument(
+        "--latency-drift-limit-pct",
+        type=float,
+        default=25.0,
+        help="p95 drift between the first and last quarter. A soak that ignores this is not a "
+        "soak: the first run passed on memory while p95 rose 65%% and nothing flagged it",
+    )
     parser.add_argument("--label", default="soak")
     parser.add_argument("--corpus", type=Path, default=HERE.parent / "eval" / "corpus")
     parser.add_argument("--results-dir", type=Path, default=HERE / "results")
@@ -182,9 +195,10 @@ def main() -> int:
             f"{args.base_url}/v1/admin/keys/{key_id}", timeout=30
         )
 
-    rss = drift(samples, "api_rss_bytes")
+    rss = drift(samples, "api_rss_bytes", per_pod=True)
     latency = drift(samples, "latency_p95")
-    fds = drift(samples, "api_open_fds")
+    fds = drift(samples, "api_open_fds", per_pod=True)
+    pods = drift(samples, "api_rss_bytes")  # the sum, only to notice the pod count changing
     totals = {
         name: (sum(samples[-1][name]) if samples[-1].get(name) else 0)
         for name in ("requests_total", "errors_total", "degraded_total", "shed_total")
@@ -196,6 +210,16 @@ def main() -> int:
         )
     if totals["errors_total"]:
         verdict.append(f"{totals['errors_total']:.0f} server errors")
+    if (
+        latency
+        and latency["change_pct"] is not None
+        and latency["change_pct"] > args.latency_drift_limit_pct
+    ):
+        # Whether the cause is the service or the machine it runs on, a sustained load that gets
+        # slower over an hour is the finding a soak exists to produce. It is reported, not excused.
+        verdict.append(
+            f"p95 drifted {latency['change_pct']:+.0f}% (limit {args.latency_drift_limit_pct:.0f}%)"
+        )
     if fds and fds["change_pct"] is not None and fds["change_pct"] > 25:
         verdict.append(f"open file descriptors grew {fds['change_pct']}%")
 
@@ -206,9 +230,11 @@ def main() -> int:
         "users": args.users,
         "stream_weight": args.stream_weight,
         "samples": len(samples),
-        "api_rss_bytes": rss,
+        "api_rss_bytes_per_pod": rss,
+        "api_rss_bytes_all_pods": pods,
+        "pod_counts": sorted({len(s["api_rss_bytes"]) for s in samples if s.get("api_rss_bytes")}),
         "latency_p95_seconds": latency,
-        "api_open_fds": fds,
+        "api_open_fds_per_pod": fds,
         "totals": totals,
         "passed": not verdict,
         "problems": verdict,
@@ -220,10 +246,11 @@ def main() -> int:
     print("\n" + ("PASS" if result["passed"] else "FAIL: " + "; ".join(verdict)))
     if rss:
         print(
-            f"resident memory {rss['first_quarter'] / 1e6:.0f} MB -> "
+            f"resident memory per pod {rss['first_quarter'] / 1e6:.0f} MB -> "
             f"{rss['last_quarter'] / 1e6:.0f} MB ({rss['change_pct']:+.1f}%), "
             f"peak {rss['peak'] / 1e6:.0f} MB"
         )
+        print(f"pod counts seen during the run: {result['pod_counts']}")
     if latency:
         print(
             f"p95 {latency['first_quarter'] * 1000:.0f} ms -> "

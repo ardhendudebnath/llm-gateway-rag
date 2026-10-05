@@ -171,7 +171,35 @@ every cache lookup. RAG search p95 at 100 users falls from 2,200 ms to 1,400 ms.
 on record that still leaves a few hundred milliseconds, which is about what the larger corpus costs
 (finding 8) — so the regression is now explained by the fixture rather than outstanding.
 
-**11. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
+**11. An hour at steady load: no leak, no errors, and a latency drift mostly from the laptop.**
+[`soak.py`](soak.py) held 40 users — streamed requests included — for an hour, sampling the pods
+every 30 s. It was written for the state recent work added: asyncio tasks that meter streams whose
+clients hang up, a Redis counter per request for canary rollouts, and pooled breaker keys. None of
+it leaks: per-pod resident memory went 823 → 828 MB (+0.5%) across 123,157 requests and about
+30,000 streams, with zero server errors and ~10,000 requests degraded gracefully rather than failed.
+
+The first version of the script then printed PASS while p95 rose 65%, because it only had thresholds
+for memory, errors and file descriptors. A soak that ignores latency drift is not a soak, so it now
+fails on drift past 25%, and the stored result was re-derived from the same samples and records that
+it was.
+
+The drift rose for ~20 minutes then plateaued, at flat throughput, with a queue forming at the
+inference gate — what a capped CPU looks like, and the laptop was on its "Silent" power plan. So the
+same load ran again on "Performance", compared over windows fixed before the second run:
+
+| p95 | Silent | Performance |
+|---|---:|---:|
+| minutes 0-17 | 772 ms | 898 ms |
+| minutes 20-30 | 1,222 ms | 1,048 ms |
+| drift | **+58%** | **+17%** |
+
+The power plan accounts for most of it. The residual 17% is not distinguishable from noise: the two
+runs' *starting* windows already differ by 16%, the same size as the residual and inside this bench's
+~12-15% resolution (finding 10). What is consistent across both is the inference queue growing from
+under one waiting request to about one, which is the thing to watch on dedicated hardware, where a
+power plan cannot be the explanation.
+
+**12. Losing the primary provider cost nothing visible to users.** Under a steady 20 req/s, the
 primary was made to fail every call for 45 s (through `PUT /v1/admin/faults/{deployment}`, which
 fails the deployment on every replica, exactly where a real provider error would):
 
