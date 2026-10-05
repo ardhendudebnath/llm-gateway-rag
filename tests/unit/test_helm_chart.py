@@ -67,14 +67,14 @@ def test_the_charts_copies_match_the_base_stack(copy, original):
     )
 
 
-def test_the_chart_and_the_app_agree_on_the_version():
-    """The chart pulls the image tagged with its appVersion, and CI publishes that tag only from a
-    release tag matching pyproject.toml. If these drift, a default install pulls another build of
-    the app, or one that was never published."""
+def test_the_chart_and_the_app_share_one_release_version():
+    """A release tag publishes the chart and the image under one version, and CI refuses a tag
+    that disagrees with pyproject.toml. The chart pulls the image tagged with its appVersion: if
+    these drift, a published chart installs another build of the app, or one never published."""
     chart = yaml.safe_load((CHART / "Chart.yaml").read_text(encoding="utf-8"))
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]
 
-    assert chart["appVersion"] == project["version"] == __version__
+    assert chart["version"] == chart["appVersion"] == project["version"] == __version__
 
 
 @needs_helm

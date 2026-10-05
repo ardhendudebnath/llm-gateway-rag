@@ -4,7 +4,10 @@ description: >-
   Self-hosted LLM gateway and RAG backend — provider fallback, shared circuit breaking, a
   semantic cache, hybrid retrieval and cost metering behind one OpenAI-compatible API.
 type: application
-version: 0.1.0
+# One number for the release: the chart and the image are published together from tag vX.Y.Z, and
+# the chart pulls the image tagged appVersion. tests/unit/test_helm_chart.py holds both equal to
+# the app's version.
+version: 0.2.0
 appVersion: "0.2.0"
 home: https://github.com/ardhendudebnath/llm-gateway-rag
 sources:

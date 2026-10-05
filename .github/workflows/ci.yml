@@ -105,6 +105,41 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # On a release tag, once that release's image is published: the chart, as an OCI artifact on the
+  # same registry, so installing needs no clone. It carries the release's version (a test locks the
+  # chart's version to the app's) and pulls the release's image, so the pair always matches.
+  chart:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [k8s, image]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Package the chart and publish it to the GitHub Container Registry
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          registry="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+          version=$(helm show chart infra/helm/nexusgate | grep '^version:' | cut -d ' ' -f 2)
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match chart version $version"
+            exit 1
+          fi
+          helm package infra/helm/nexusgate --destination dist
+          printf '%s' "$TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          helm push "dist/nexusgate-$version.tgz" "oci://$registry"
+          # Read it back: render what an install from the registry would get.
+          helm template nexusgate "oci://$registry/nexusgate" --version "$version" \
+            --set secrets.existingSecret=check > /dev/null
+          {
+            echo "### Published"
+            echo '```'
+            echo "helm install nexusgate oci://$registry/nexusgate --version $version"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # The public demo is the artifact people actually see, so boot it and walk through it.
   demo:
     needs: test

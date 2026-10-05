@@ -167,19 +167,22 @@ for chunk in client.chat.completions.create(  # streaming, same as any OpenAI en
 ### 3. On a real cluster, with Helm
 
 ```bash
-helm install nexusgate infra/helm/nexusgate --namespace nexusgate --create-namespace \
-  --set secrets.existingSecret=nexusgate-secrets
+helm install nexusgate oci://ghcr.io/ardhendudebnath/charts/nexusgate \
+  --namespace nexusgate --create-namespace --set secrets.existingSecret=nexusgate-secrets
 ```
 
-The [chart](infra/helm/nexusgate) installs the API and workers, bundles Redis and Qdrant or points at
-managed ones, and hands monitoring to the cluster's own Prometheus Operator instead of shipping a
-second Prometheus. It refuses to install without secrets rather than inventing them.
-[Its README](infra/helm/nexusgate/README.md) covers what differs from the laptop stack and why.
+That installs the newest release; `--version X.Y.Z` pins one, and `infra/helm/nexusgate` from a
+clone works the same. The [chart](infra/helm/nexusgate) installs the API and workers, bundles Redis
+and Qdrant or points at managed ones, and hands monitoring to the cluster's own Prometheus Operator
+instead of shipping a second Prometheus. It refuses to install without secrets rather than
+inventing them. [Its README](infra/helm/nexusgate/README.md) covers what differs from the laptop
+stack and why.
 
-It pulls the image CI publishes to `ghcr.io/ardhendudebnath/nexusgate-api`, tagged with the release
-the chart belongs to. No image is published until it has run the way the chart runs it — production
-settings, real Redis Stack, Qdrant and a worker, non-root on a read-only filesystem — and passed
-the smoke test ([`scripts/check_image.py`](scripts/check_image.py)).
+Each release tag publishes the chart and the image together under one version, and the chart pulls
+the image of its own release. No image is published until it has run the way the chart runs it —
+production settings, real Redis Stack, Qdrant and a worker, non-root on a read-only filesystem —
+and passed the smoke test ([`scripts/check_image.py`](scripts/check_image.py)), and no chart is
+published until its image is.
 
 ### 4. Local development (no cluster)
 
@@ -381,7 +384,7 @@ actually produced a token, and after that the choice is locked in.
 - **Per-pod scraping:** Prometheus discovers every API pod through a headless Service's DNS records. Each replica keeps its own counters, and scraping the load-balanced Service would sample a random pod each time.
 - **Hardened pods:** they run as non-root with a read-only root filesystem and all capabilities dropped. An init container waits for Redis and Qdrant instead of letting the API crash-loop. Qdrant runs its unprivileged image and requires an API key.
 - **Models in the image:** the embedding and reranking weights are downloaded at build time, and pods run with `HF_HUB_OFFLINE=1`. Startup is fast and needs no internet access.
-- **An image is published only after it has run as the chart runs it.** [`scripts/check_image.py`](scripts/check_image.py) renders the Helm chart and starts what it describes in one Podman pod — each container with the chart's environment, command, user and security context, beside real Redis Stack and Qdrant — then runs the smoke test against it. Nothing is copied out of the chart by hand, so the check can't drift from it. CI publishes `main` and `sha-<commit>` from every push to main, and `X.Y.Z` from a release tag, which it refuses if the tag disagrees with the app's version: the chart's default image tag is its `appVersion`, and a test holds the three equal.
+- **An image is published only after it has run as the chart runs it.** [`scripts/check_image.py`](scripts/check_image.py) renders the Helm chart and starts what it describes in one Podman pod — each container with the chart's environment, command, user and security context, beside real Redis Stack and Qdrant — then runs the smoke test against it. Nothing is copied out of the chart by hand, so the check can't drift from it. CI publishes `main` and `sha-<commit>` from every push to main. A release tag publishes the image as `X.Y.Z` and then the chart, as an OCI artifact on the same registry, under the same version. CI refuses a tag that disagrees with the app's version, and a test holds the chart's `version` and `appVersion` equal to it, so a published chart always pulls the image of its own release.
 - **Autoscaling on the signal that matters per workload** ([autoscaling.yaml](infra/k8s/base/autoscaling.yaml)). The API scales on CPU, because the load test showed CPU is its ceiling once inference is bounded. The workers scale on **ingestion queue depth**, served to the HPA by a [prometheus-adapter](infra/k8s/base/prometheus-adapter.yaml) reading the gauge the API publishes from Redis — and on nothing else, because a CPU target scaled them out while the queue was *empty*: one ingest job pegs a worker's CPU, which says it is busy, never that work is piling up.
   - **Measured, including the part that doesn't flatter it.** The loop works — a backlog of 51 jobs per worker against a target of 5 added pods and drained. But on this one-node cluster the same backlog cleared in **312 s with one worker and 324 s with four**: a single worker already uses ~8 cores, so extra pods competed for busy CPUs. The kind overlay therefore caps workers at 2, while the base keeps 4 for a cluster with room. [Numbers](loadtest/AUTOSCALING.md).
   - **A start-up spike is not load.** The API HPA scaled 2 → 4 on an idle cluster, because a fresh pod loads both models and pegs its CPU for a minute — and each pod it added did the same. Scale-up now ignores anything shorter than two minutes.
@@ -451,7 +454,7 @@ Eight weekly milestones, following the project spec:
 | — | Beyond the roadmap: canary rollout of provider changes (§10) | ✅ [`app/gateway/rollout.py`](app/gateway/rollout.py): weighted traffic split with automatic rollback |
 | — | Beyond the roadmap: streaming responses | ✅ SSE with fallback decided before the first token, and a breaker that waits for the whole stream |
 | — | Beyond the roadmap: circuit state shared across replicas | ✅ [`app/gateway/breaker_cluster.py`](app/gateway/breaker_cluster.py): pooled failures, adopted state, one probe per cooldown |
-| — | Beyond the roadmap: a Helm chart for real clusters | ✅ [`infra/helm/nexusgate`](infra/helm/nexusgate): external datastores, Prometheus Operator monitoring, refuses to install without secrets; pulls the image CI publishes to ghcr.io only after running it as the chart does |
+| — | Beyond the roadmap: a Helm chart for real clusters | ✅ [`infra/helm/nexusgate`](infra/helm/nexusgate): external datastores, Prometheus Operator monitoring, refuses to install without secrets; chart and image published to ghcr.io together on each release, the image only after running it as the chart does |
 | — | Beyond the roadmap: hybrid retrieval (§4.4 lists vector search only) | ✅ [`app/rag/lexical.py`](app/rag/lexical.py): BM25 sparse vectors fused with the dense ones in Qdrant, and an eval set hard enough to show the difference |
 
 ## What I'd do with more time
@@ -467,5 +470,3 @@ Eight weekly milestones, following the project spec:
   most of a p95 drift traced to the power plan — but the inference queue grew in every run, and only
   a machine without a power cap can say whether that is the service or the host
   ([finding 11](loadtest/README.md#findings)).
-- Publish the Helm chart as well as the image (an OCI artifact on the same registry), so installing
-  needs no clone of this repository.

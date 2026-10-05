@@ -4,9 +4,12 @@ Installs the gateway on a real Kubernetes cluster: the API and the ingestion wor
 Qdrant either bundled or external, and monitoring handed to the cluster's own Prometheus Operator.
 
 ```bash
-helm install nexusgate infra/helm/nexusgate --namespace nexusgate --create-namespace \
-  --set secrets.existingSecret=nexusgate-secrets
+helm install nexusgate oci://ghcr.io/ardhendudebnath/charts/nexusgate \
+  --namespace nexusgate --create-namespace --set secrets.existingSecret=nexusgate-secrets
 ```
+
+That installs the newest release; add `--version X.Y.Z` to pin one. From a clone of the repository,
+`infra/helm/nexusgate` in place of the `oci://` reference installs the same chart.
 
 The defaults mirror [`infra/k8s/base`](../../k8s/base), which is the stack the load, soak and chaos
 tests ran against. The kustomize stack is still the way to run everything on one laptop; this chart
@@ -23,16 +26,22 @@ is the way to run it on a cluster you don't own end to end.
 | PodDisruptionBudget | none | on for the API, so a node drain can't evict every replica at once |
 | Config changes | roll pods via hashed ConfigMap names | roll pods via a checksum annotation |
 
-## Image
+## Releases
 
-The chart pulls `ghcr.io/ardhendudebnath/nexusgate-api`, which CI publishes:
+A release tag `vX.Y.Z` publishes the image and then this chart, both as `X.Y.Z`:
 
-| Tag | From | Use |
+| | Published to | Tags |
 |---|---|---|
-| `X.Y.Z`, `X.Y`, `latest` | each release tag `vX.Y.Z` | `X.Y.Z` is the chart's default: its `appVersion` |
-| `main`, `sha-<commit>` | every push to main | the newest build; `main` moves, so set `pullPolicy: Always` |
+| Chart | `oci://ghcr.io/ardhendudebnath/charts/nexusgate` | `X.Y.Z` from each release tag |
+| Image | `ghcr.io/ardhendudebnath/nexusgate-api` | `X.Y.Z`, `X.Y`, `latest` from each release tag; `main` and `sha-<commit>` from every push to main |
 
-Before anything is pushed, [`scripts/check_image.py`](../../../scripts/check_image.py) runs the
+The chart's `version`, its `appVersion` and the app's version are one number, held equal by a test,
+and CI refuses a release tag that disagrees with it. The chart's default image tag is its
+`appVersion`, so a chart always installs the image built from its own release, and it is published
+only after that image is. To track `main` instead, set `image.tag=main` with `pullPolicy: Always`,
+since that tag moves.
+
+Before an image is pushed, [`scripts/check_image.py`](../../../scripts/check_image.py) runs the
 image the way this chart runs it: it renders the chart and starts the bundled Redis Stack and
 Qdrant, the dependency wait, the API and a worker in one Podman pod, each with the environment,
 command, user and security context the chart gives it, then runs the smoke test against the API.
@@ -42,8 +51,6 @@ Anyone can run it against any tag:
 python scripts/check_image.py ghcr.io/ardhendudebnath/nexusgate-api:0.2.0
 ```
 
-A release tag that disagrees with the app's version is refused, and a test holds the chart's
-`appVersion` equal to it, so a default install always pulls the image built from its own release.
 To run a local build on kind instead, load it (`kind load image-archive`) and set
 `image.repository=localhost/nexusgate-api` and `image.tag=dev`.
 

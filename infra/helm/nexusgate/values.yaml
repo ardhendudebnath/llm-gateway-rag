@@ -7,8 +7,8 @@ fullnameOverride: ""
 image:
   # Published by CI once the image has run the way this chart runs it and passed the smoke test
   # (scripts/check_image.py): `X.Y.Z`, `X.Y` and `latest` from each release tag vX.Y.Z, and `main`
-  # and `sha-<commit>` from every push to main. The tag defaults to the chart's appVersion, which a
-  # test holds equal to the app's version, so the chart installs the image built from its release.
+  # and `sha-<commit>` from every push to main. The tag defaults to the chart's appVersion, and the
+  # chart is released with the image under one version, so it installs the image of its release.
   # `main` moves: pair it with pullPolicy Always. A local build loaded into kind:
   #   --set image.repository=localhost/nexusgate-api --set image.tag=dev
   repository: ghcr.io/ardhendudebnath/nexusgate-api
