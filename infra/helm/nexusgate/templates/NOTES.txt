@@ -1,0 +1,29 @@
+NexusGate {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}" in "{{ .Release.Namespace }}".
+
+The API starts once Redis and Qdrant answer and its models have loaded (about a minute):
+
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "nexusgate.componentName" (dict "root" . "component" "api") }}
+
+{{- if .Values.ingress.enabled }}
+
+It is served at:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+Reach it locally:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "nexusgate.componentName" (dict "root" . "component" "api") }} 8000:{{ .Values.api.service.port }}
+  curl localhost:8000/readyz
+{{- end }}
+
+Then walk every feature end to end, with the admin token you installed with:
+
+  python scripts/smoke_test.py --base-url http://localhost:8000 --admin-token <token>
+
+{{- if not .Values.metrics.serviceMonitor.enabled }}
+
+Metrics are served at /metrics on every API pod. With the Prometheus Operator, set
+metrics.serviceMonitor.enabled=true (and prometheusRule / grafanaDashboard) to wire them up.
+{{- end }}

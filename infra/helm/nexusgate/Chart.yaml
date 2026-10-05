@@ -1,0 +1,19 @@
+apiVersion: v2
+name: nexusgate
+description: >-
+  Self-hosted LLM gateway and RAG backend — provider fallback, shared circuit breaking, a
+  semantic cache, hybrid retrieval and cost metering behind one OpenAI-compatible API.
+type: application
+version: 0.1.0
+appVersion: "0.2.0"
+home: https://github.com/ardhendudebnath/llm-gateway-rag
+sources:
+  - https://github.com/ardhendudebnath/llm-gateway-rag
+keywords:
+  - llm
+  - gateway
+  - rag
+  - openai-compatible
+  - qdrant
+maintainers:
+  - name: Ardhendu Debnath

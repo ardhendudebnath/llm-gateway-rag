@@ -1,0 +1,55 @@
+{{- if .Values.metrics.serviceMonitor.enabled }}
+# Scraped by the cluster's Prometheus Operator. A ServiceMonitor targets each endpoint behind the
+# Service, so every API replica is scraped separately — each keeps its own counters.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "nexusgate.componentName" (dict "root" . "component" "api") }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+    {{- with .Values.metrics.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "nexusgate.selectorLabels" (dict "root" . "component" "api") | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+      relabelings:
+        # The alert rules and the load-test tooling select on this job name.
+        - targetLabel: job
+          replacement: {{ .Values.metrics.serviceMonitor.jobName | quote }}
+{{- end }}
+{{- if .Values.metrics.prometheusRule.enabled }}
+---
+# The same rules the laptop stack loads from infra/k8s/base/config/alert-rules.yml.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "nexusgate.fullname" . }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    {{- with .Values.metrics.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- .Files.Get "files/alert-rules.yml" | fromYaml | toYaml | nindent 2 }}
+{{- end }}
+{{- if .Values.metrics.grafanaDashboard.enabled }}
+---
+# Picked up by Grafana's dashboard sidecar (kube-prometheus-stack) through its label.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-dashboard" (include "nexusgate.fullname" .) }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    {{ .Values.metrics.grafanaDashboard.label }}: {{ .Values.metrics.grafanaDashboard.labelValue | quote }}
+data:
+  nexusgate.json: |-
+    {{- .Files.Get "files/grafana-dashboard.json" | nindent 4 }}
+{{- end }}

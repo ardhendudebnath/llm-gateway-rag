@@ -1,5 +1,5 @@
-# NexusGate API. Two replicas: rate limiting and the semantic cache live in Redis, so they are
-# shared correctly across replicas; circuit breakers are per replica by design (see README).
+# NexusGate API. Two replicas: rate limiting, the semantic cache, canary route tables and circuit
+# breaker state all live in Redis, so every replica sees the same picture (see README).
 apiVersion: apps/v1
 kind: Deployment
 metadata:

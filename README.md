@@ -63,7 +63,7 @@ It also found a measurement problem worth more than the numbers. Re-running it a
 
 ## Quickstart
 
-There are three ways to run it, from quickest to most complete.
+There are four ways to run it, from quickest to most complete.
 
 ### 1. The one-container demo
 
@@ -164,7 +164,20 @@ for chunk in client.chat.completions.create(  # streaming, same as any OpenAI en
     print(chunk.choices[0].delta.content or "", end="")
 ```
 
-### 3. Local development (no cluster)
+### 3. On a real cluster, with Helm
+
+```bash
+helm install nexusgate infra/helm/nexusgate --namespace nexusgate --create-namespace \
+  --set image.repository=<your-registry>/nexusgate-api --set image.tag=<tag> \
+  --set secrets.existingSecret=nexusgate-secrets
+```
+
+The [chart](infra/helm/nexusgate) installs the API and workers, bundles Redis and Qdrant or points at
+managed ones, and hands monitoring to the cluster's own Prometheus Operator instead of shipping a
+second Prometheus. It refuses to install without secrets rather than inventing them.
+[Its README](infra/helm/nexusgate/README.md) covers what differs from the laptop stack and why.
+
+### 4. Local development (no cluster)
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"   # Windows: .venv\Scripts\pip
@@ -402,6 +415,8 @@ tests/unit, tests/integration
 infra/k8s/base            kustomize base: API, worker, Redis, Qdrant, Prometheus,
                           Alertmanager, Grafana + their config (rules, dashboard)
 infra/k8s/overlays/kind   local kind cluster: NodePorts, Podman-built image, cluster config
+infra/helm/nexusgate      Helm chart for real clusters: external datastores, Prometheus Operator
+                          monitoring, secrets it refuses to invent
 scripts/          cluster-up / cluster-down (PowerShell + bash), smoke test, demo walkthrough,
                   GIF recorder, Hugging Face Space deploy
 Containerfile       API and worker image for Kubernetes, built with Podman
@@ -430,6 +445,7 @@ Eight weekly milestones, following the project spec:
 | — | Beyond the roadmap: canary rollout of provider changes (§10) | ✅ [`app/gateway/rollout.py`](app/gateway/rollout.py): weighted traffic split with automatic rollback |
 | — | Beyond the roadmap: streaming responses | ✅ SSE with fallback decided before the first token, and a breaker that waits for the whole stream |
 | — | Beyond the roadmap: circuit state shared across replicas | ✅ [`app/gateway/breaker_cluster.py`](app/gateway/breaker_cluster.py): pooled failures, adopted state, one probe per cooldown |
+| — | Beyond the roadmap: a Helm chart for real clusters | ✅ [`infra/helm/nexusgate`](infra/helm/nexusgate): external datastores, Prometheus Operator monitoring, refuses to install without secrets |
 | — | Beyond the roadmap: hybrid retrieval (§4.4 lists vector search only) | ✅ [`app/rag/lexical.py`](app/rag/lexical.py): BM25 sparse vectors fused with the dense ones in Qdrant, and an eval set hard enough to show the difference |
 
 ## What I'd do with more time
@@ -445,4 +461,5 @@ Eight weekly milestones, following the project spec:
   most of a p95 drift traced to the power plan — but the inference queue grew in every run, and only
   a machine without a power cap can say whether that is the service or the host
   ([finding 11](loadtest/README.md#findings)).
-- A Helm chart for real clusters.
+- Publish the image. CI builds and boots it on every push but pushes it nowhere, so the Helm chart's
+  users have to build their own; a tagged release to a container registry would make it one command.

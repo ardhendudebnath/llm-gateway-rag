@@ -1,0 +1,75 @@
+{{- if .Values.api.autoscaling.enabled }}
+# The API is CPU-bound once inference is bounded (app/core/concurrency.py), so CPU is the trigger.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "nexusgate.componentName" (dict "root" . "component" "api") }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "nexusgate.componentName" (dict "root" . "component" "api") }}
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleUp:
+      # Two minutes, for a measured reason: a new pod loads the models and pegs its CPU for about a
+      # minute, and a shorter window read that spike as load and scaled an idle cluster from 2 to 4.
+      stabilizationWindowSeconds: 120
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 60 }
+    scaleDown:
+      # Each new pod pays the same start-up cost, so flapping is expensive: shrink slowly.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 120 }
+{{- end }}
+{{- if .Values.worker.autoscaling.enabled }}
+---
+# Workers scale on queue depth, not CPU: one ingest job saturates a worker's CPU even with nothing
+# waiting, so a CPU target scaled out on an empty queue. Needs prometheus-adapter serving
+# nexusgate_ingest_queue_depth as an external metric.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "nexusgate.componentName" (dict "root" . "component" "worker") }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "nexusgate.componentName" (dict "root" . "component" "worker") }}
+  minReplicas: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.worker.autoscaling.maxReplicas }}
+  metrics:
+    - type: External
+      external:
+        metric:
+          name: nexusgate_ingest_queue_depth
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.worker.autoscaling.targetQueueDepthPerPod | quote }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - { type: Pods, value: 2, periodSeconds: 60 }
+    scaleDown:
+      # A worker killed mid-job has its task redelivered (acks_late), so scaling down early only
+      # costs time — but scaling down into a fresh burst is worse.
+      stabilizationWindowSeconds: 300
+      policies:
+        - { type: Pods, value: 1, periodSeconds: 120 }
+{{- end }}

@@ -1,0 +1,375 @@
+{
+  "uid": "nexusgate",
+  "title": "NexusGate",
+  "tags": ["nexusgate"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests / sec",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_http_requests_total[1m]))",
+          "legendFormat": "requests"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Error rate (5xx, 5m)",
+      "description": "Alerts fire above 5% for 2 minutes.",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(nexusgate_http_requests_total[5m])), 0.0001)",
+          "legendFormat": "error rate"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Cache hit rate (5m)",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_cache_lookups_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(nexusgate_cache_lookups_total[5m])), 0.0001)",
+          "legendFormat": "hit rate"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Spend vs saved by cache",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(nexusgate_llm_cost_usd_total)",
+          "legendFormat": "spent"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(nexusgate_cache_cost_saved_usd_total)",
+          "legendFormat": "saved"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP latency (p50 / p95 / p99)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(nexusgate_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider calls by outcome",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "fillOpacity": 10, "stacking": { "mode": "normal" } } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(nexusgate_llm_calls_total[5m]))",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Provider latency p95 by deployment",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, deployment) (rate(nexusgate_llm_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{deployment}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cost per hour, by deployment",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "decimals": 4 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (deployment) (rate(nexusgate_llm_cost_usd_total[5m])) * 3600",
+          "legendFormat": "{{deployment}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(nexusgate_cache_cost_saved_usd_total[5m])) * 3600",
+          "legendFormat": "saved by cache"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Fallbacks, failures, rate limiting, open breakers",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(nexusgate_llm_fallbacks_total[5m]))",
+          "legendFormat": "fallbacks/s"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(nexusgate_llm_all_providers_failed_total[5m]))",
+          "legendFormat": "all-providers-failed/s"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(nexusgate_rate_limited_total[5m]))",
+          "legendFormat": "rate-limited/s"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(nexusgate_circuit_open)",
+          "legendFormat": "open breakers"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Ingestion jobs: queue depth, dead letters, outcomes",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(nexusgate_rag_queue_depth)",
+          "legendFormat": "queued"
+        },
+        {
+          "refId": "B",
+          "expr": "nexusgate_rag_dead_letter_depth",
+          "legendFormat": "dead letters"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (outcome) (nexusgate_rag_job_totals)",
+          "legendFormat": "jobs {{outcome}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "RAG retrieval latency p95 by stage",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, stage) (rate(nexusgate_rag_stage_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{stage}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Alerts received by the gateway webhook",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (alertname, status) (increase(nexusgate_alerts_received_total[5m]))",
+          "legendFormat": "{{alertname}} {{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Backpressure: inference waiting, shed and degraded",
+      "description": "Bounded model concurrency (app/core/concurrency.py). Degraded requests were still answered: without reranking, or without the cache.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (model) (nexusgate_inference_waiting)",
+          "legendFormat": "waiting for {{model}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (model) (rate(nexusgate_inference_shed_total[1m]))",
+          "legendFormat": "{{model}} shed/s"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (mode) (rate(nexusgate_degraded_total[1m]))",
+          "legendFormat": "degraded: {{mode}}/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Shared circuit state: adoptions and probes",
+      "description": "'adopted' means a replica took on an open circuit another replica had already learned — the sharing working. 'yielded' means it deferred the post-cooldown probe to another replica, so a recovering provider gets one probe per cooldown, not one per pod (app/gateway/breaker_cluster.py).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 60 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (deployment) (increase(nexusgate_breaker_adoptions_total[5m]))",
+          "legendFormat": "{{deployment}} adopted open"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (outcome) (increase(nexusgate_breaker_probes_total[5m]))",
+          "legendFormat": "probe {{outcome}}"
+        },
+        {
+          "refId": "C",
+          "expr": "sum by (deployment) (nexusgate_circuit_open)",
+          "legendFormat": "{{deployment}} open"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Streaming: time to first token, and how streams end",
+      "description": "TTFT p95 per deployment is the latency a streaming client feels. 'interrupted' means a stream broke after its first token, where no fallback was possible (app/gateway/router.py).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (deployment, le) (rate(nexusgate_stream_ttft_seconds_bucket[5m])))",
+          "legendFormat": "{{deployment}} ttft p95"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (outcome) (rate(nexusgate_streams_total[5m]))",
+          "legendFormat": "{{outcome}}/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Route rollout: stable vs canary",
+      "description": "Which route table served each request, and how the canary is faring. A canary whose error rate passes its budget withdraws itself (app/gateway/rollout.py).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (variant, outcome) (rate(nexusgate_rollout_requests_total[5m]))",
+          "legendFormat": "{{variant}} {{outcome}}/s"
+        },
+        {
+          "refId": "B",
+          "expr": "nexusgate_rollout_canary_weight",
+          "legendFormat": "canary weight %"
+        },
+        {
+          "refId": "C",
+          "expr": "increase(nexusgate_rollout_rollbacks_total[5m])",
+          "legendFormat": "automatic rollbacks"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent runs: outcomes and steps",
+      "description": "One run is several LLM calls (app/agents). budget_exceeded means a critique/revise cycle hit the step budget and the last draft was returned.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(nexusgate_agent_runs_total[5m]))",
+          "legendFormat": "{{outcome}}/s"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (node) (rate(nexusgate_agent_steps_total[5m]))",
+          "legendFormat": "step: {{node}}/s"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent run duration p95, and revisions per run",
+      "description": "A multi-step run is slower and dearer than /v1/rag/answer by design; this is what that costs.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 5 }, "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(nexusgate_agent_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 run"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(nexusgate_agent_revisions_sum[5m])) / clamp_min(sum(rate(nexusgate_agent_revisions_count[5m])), 0.001)",
+          "legendFormat": "revisions per run"
+        }
+      ]
+    }
+  ]
+}

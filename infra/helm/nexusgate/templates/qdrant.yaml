@@ -1,0 +1,102 @@
+{{- if .Values.qdrant.enabled }}
+{{- $component := dict "root" . "component" "qdrant" }}
+# Qdrant: chunk vectors (dense and BM25 sparse) and payloads. The -unprivileged image runs as a
+# non-root user. Clients must send the API key; the health endpoints stay open for probes.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nexusgate.componentName" $component }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  serviceName: {{ include "nexusgate.componentName" $component }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nexusgate.selectorLabels" $component | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexusgate.labels" . | nindent 8 }}
+        app.kubernetes.io/component: qdrant
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 2000
+        fsGroup: 2000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: qdrant
+          image: "{{ .Values.qdrant.image.repository }}:{{ .Values.qdrant.image.tag }}"
+          env:
+            - name: QDRANT__SERVICE__API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nexusgate.secretName" . }}
+                  key: NEXUSGATE_QDRANT_API_KEY
+            - name: QDRANT__TELEMETRY_DISABLED
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 6333
+            - name: grpc
+              containerPort: 6334
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.qdrant.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: storage
+              mountPath: /qdrant/storage
+            - name: snapshots
+              mountPath: /qdrant/snapshots
+      volumes:
+        - name: snapshots
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.qdrant.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.qdrant.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nexusgate.componentName" $component }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: qdrant
+spec:
+  clusterIP: None
+  selector:
+    {{- include "nexusgate.selectorLabels" $component | nindent 4 }}
+  ports:
+    - name: http
+      port: 6333
+      targetPort: http
+    - name: grpc
+      port: 6334
+      targetPort: grpc
+{{- end }}

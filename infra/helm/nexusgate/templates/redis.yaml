@@ -1,0 +1,73 @@
+{{- if .Values.redis.enabled }}
+{{- $component := dict "root" . "component" "redis" }}
+# Redis Stack: rate-limit buckets, API keys, usage metering, the semantic cache (its Query Engine is
+# the HNSW index), canary route tables and pooled circuit state.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nexusgate.componentName" $component }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ include "nexusgate.componentName" $component }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "nexusgate.selectorLabels" $component | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexusgate.labels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.redis.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nexusgate.componentName" $component }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  clusterIP: None # stable per-pod DNS for the StatefulSet
+  selector:
+    {{- include "nexusgate.selectorLabels" $component | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- end }}

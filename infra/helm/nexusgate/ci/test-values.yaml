@@ -1,0 +1,24 @@
+# Values for linting and rendering in CI: every optional piece switched on, so every template is
+# exercised. The secrets are placeholders that only satisfy the chart's own `required` checks.
+secrets:
+  adminToken: ci-admin-token
+  jwtSecret: ci-jwt-secret-that-is-long-enough-to-pass
+  qdrantApiKey: ci-qdrant-key
+worker:
+  autoscaling:
+    enabled: true
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: nexusgate.ci.example
+      paths:
+        - path: /
+          pathType: Prefix
+metrics:
+  serviceMonitor:
+    enabled: true
+  prometheusRule:
+    enabled: true
+  grafanaDashboard:
+    enabled: true

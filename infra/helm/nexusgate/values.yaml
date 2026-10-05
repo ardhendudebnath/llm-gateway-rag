@@ -1,0 +1,176 @@
+# NexusGate Helm chart. Defaults mirror the kustomize stack in infra/k8s/base, which is what the
+# load tests, soak test and chaos test ran against; where a default differs, the comment says why.
+
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  # CI builds this image but does not publish it. Build it from the repository root and push it
+  # to a registry your cluster can pull from, then point this at it:
+  #   podman build -f Containerfile -t <registry>/nexusgate-api:<tag> . && podman push ...
+  # On kind, load it instead (`kind load image-archive`) and use pullPolicy IfNotPresent.
+  repository: localhost/nexusgate-api
+  tag: "" # defaults to the chart's appVersion
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Secrets the gateway needs. Nothing here has a default on purpose: the app refuses default secrets
+# in production, so an install that does not supply them fails at render time with a message saying
+# which one is missing, rather than starting with something guessable.
+secrets:
+  # Name of a Secret you manage yourself (sealed-secrets, external-secrets, `kubectl create`).
+  # It must carry NEXUSGATE_ADMIN_TOKEN, NEXUSGATE_JWT_SECRET and NEXUSGATE_QDRANT_API_KEY, and may
+  # carry ANTHROPIC_API_KEY / OPENAI_API_KEY. When set, the values below are ignored.
+  existingSecret: ""
+  adminToken: ""
+  jwtSecret: "" # at least 32 characters
+  qdrantApiKey: ""
+  anthropicApiKey: ""
+  openaiApiKey: ""
+
+# Settings passed to every pod as environment variables. Any NEXUSGATE_* setting from
+# app/core/config.py can be added here; .env.example documents each one.
+config:
+  NEXUSGATE_ENV: prod
+  NEXUSGATE_LOG_LEVEL: INFO
+  # redisearch needs Redis Stack (the bundled Redis is). Plain Redis: use bruteforce.
+  NEXUSGATE_CACHE_INDEX_BACKEND: redisearch
+  NEXUSGATE_EMBEDDING_BACKEND: fastembed
+  NEXUSGATE_RAG_RERANKER: cross-encoder
+  # Retrieval, as chosen by eval/RESULTS.md: BM25 fused with dense vectors by rank, and 12 rerank
+  # candidates, which scores identically to 20 for half the cost.
+  NEXUSGATE_RETRIEVAL_HYBRID: "true"
+  NEXUSGATE_RETRIEVAL_FUSION: rrf
+  NEXUSGATE_RAG_RERANK_CANDIDATES: "12"
+  # Circuit state pooled across replicas through Redis (app/gateway/breaker_cluster.py).
+  NEXUSGATE_BREAKER_SHARED: "true"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+api:
+  # Ignored while autoscaling is enabled: the HPA owns the replica count.
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      # The embedding and reranking models live in-process. No CPU limit: it would throttle
+      # inference, which is what the load test found to be the ceiling.
+      memory: 1536Mi
+  autoscaling:
+    enabled: true
+    # Never below 2, so a rolling update or a node drain always leaves one serving.
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  service:
+    type: ClusterIP
+    port: 8000
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+worker:
+  replicaCount: 1
+  # Celery prefork children per pod. Each loads the embedding and reranking models.
+  concurrency: 2
+  resources:
+    requests:
+      # One ingest job was measured at ~8 cores: ONNX embedding uses every thread it is given.
+      # A small request lets the scheduler pack workers onto a node one of them saturates.
+      cpu: 1000m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
+  autoscaling:
+    # Scales on ingestion queue depth, not CPU (a busy worker is CPU-bound even with an empty
+    # queue). Needs prometheus-adapter serving the external metric `nexusgate_ingest_queue_depth`
+    # — infra/k8s/base/config/prometheus-adapter.yaml has the rule — so it is off by default.
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetQueueDepthPerPod: 5
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# Bundled Redis Stack. Set enabled=false and externalUrl to use your own (managed Redis is fine;
+# without the Query Engine, set NEXUSGATE_CACHE_INDEX_BACKEND=bruteforce in config above).
+redis:
+  enabled: true
+  externalUrl: "" # e.g. rediss://:password@my-redis:6380/0
+  image:
+    repository: docker.io/redis/redis-stack-server
+    tag: 7.4.0-v8
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  persistence:
+    size: 1Gi
+    storageClass: "" # "" uses the cluster default
+
+# Bundled Qdrant. Set enabled=false and externalUrl to use your own.
+qdrant:
+  enabled: true
+  externalUrl: "" # e.g. https://my-cluster.qdrant.io:6333
+  image:
+    repository: docker.io/qdrant/qdrant
+    tag: v1.19.1-unprivileged
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  persistence:
+    size: 2Gi
+    storageClass: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: nexusgate.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Monitoring through the cluster's own Prometheus Operator, rather than a second Prometheus.
+# Each piece needs the operator's CRDs (kube-prometheus-stack installs them).
+metrics:
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    # The alert rules and the load-test tooling select job="nexusgate-api"; scraped targets are
+    # relabelled to that job name so they keep working unchanged.
+    jobName: nexusgate-api
+    labels: {} # e.g. release: kube-prometheus-stack, if your Prometheus selects on it
+  prometheusRule:
+    enabled: false
+    labels: {}
+  grafanaDashboard:
+    # A ConfigMap the Grafana sidecar in kube-prometheus-stack picks up by label.
+    enabled: false
+    label: grafana_dashboard
+    labelValue: "1"

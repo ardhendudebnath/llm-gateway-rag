@@ -1,0 +1,90 @@
+{{- $component := dict "root" . "component" "worker" }}
+# Celery ingestion workers: the same image as the API, started with a different command. Scaling
+# this Deployment is how ingestion throughput grows; the API is unaffected.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nexusgate.componentName" $component }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "nexusgate.selectorLabels" $component | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "nexusgate.labels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+      annotations:
+        {{- include "nexusgate.rolloutAnnotations" . | nindent 8 }}
+        {{- with .Values.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        {{- include "nexusgate.waitForDeps" . | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "nexusgate.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - celery
+            - -A
+            - app.workers.celery_app:celery_app
+            - worker
+            - --queues=ingest
+            - --concurrency={{ .Values.worker.concurrency }}
+            - --prefetch-multiplier=1
+            - --max-tasks-per-child=100 # recycle children so a leak cannot grow unbounded
+            - --without-gossip
+            - --without-mingle
+            - --loglevel=INFO
+          envFrom:
+            - configMapRef:
+                name: {{ include "nexusgate.configName" . }}
+            - secretRef:
+                name: {{ include "nexusgate.secretName" . }}
+          livenessProbe:
+            # Ask the worker itself whether it is still accepting tasks.
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A app.workers.celery_app:celery_app inspect ping -d celery@$(hostname) -t 10
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 20
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

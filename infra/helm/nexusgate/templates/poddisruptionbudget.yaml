@@ -1,0 +1,19 @@
+{{- if .Values.api.podDisruptionBudget.enabled }}
+{{- $replicas := ternary .Values.api.autoscaling.minReplicas .Values.api.replicaCount .Values.api.autoscaling.enabled }}
+{{- if gt (int $replicas) 1 }}
+# Not in the laptop stack, and worth having on a real one: a node drain or cluster upgrade evicts
+# pods voluntarily, and without a budget it may evict every API replica at once.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nexusgate.componentName" (dict "root" . "component" "api") }}
+  labels:
+    {{- include "nexusgate.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: {{ .Values.api.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nexusgate.selectorLabels" (dict "root" . "component" "api") | nindent 6 }}
+{{- end }}
+{{- end }}

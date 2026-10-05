@@ -86,5 +86,19 @@ jobs:
             echo "== $dir"
             kubectl kustomize "$dir" | kubeconform -strict -summary -
           done
+      # Every optional piece switched on (ci/test-values.yaml), so every template is validated.
+      # The second schema location covers the Prometheus Operator CRDs the chart can render.
+      - name: Lint and validate the Helm chart
+        run: |
+          helm lint infra/helm/nexusgate -f infra/helm/nexusgate/ci/test-values.yaml
+          helm template ci infra/helm/nexusgate -f infra/helm/nexusgate/ci/test-values.yaml \
+            | kubeconform -strict -summary \
+                -schema-location default \
+                -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+                -
+          # And an install with no secrets must be refused, not rendered with blanks.
+          if helm template ci infra/helm/nexusgate >/dev/null 2>&1; then
+            echo "the chart rendered without secrets" && exit 1
+          fi
       - name: Lint shell scripts
         run: shellcheck scripts/*.sh
