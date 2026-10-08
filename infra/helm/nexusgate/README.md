@@ -56,11 +56,14 @@ Every published image carries signed attestations of where it was built (SLSA pr
 and what is in it (a CycloneDX SBOM), made with the publishing workflow's identity:
 
 ```bash
-gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.2 \
+gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.3 \
   --repo ardhendudebnath/llm-gateway-rag                                  # provenance
-gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.2 \
+gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.3 \
   --repo ardhendudebnath/llm-gateway-rag --predicate-type https://cyclonedx.org/bom   # SBOM
 ```
+
+Signing starts at 0.2.3. 0.2.2's image passed the scan and was published, but its signing step
+found no registry credentials, so it carries no attestations and no chart was released for it.
 
 To run a local build on kind instead, load it (`kind load image-archive`) and set
 `image.repository=localhost/nexusgate-api` and `image.tag=dev`.

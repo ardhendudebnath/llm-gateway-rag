@@ -119,6 +119,10 @@ jobs:
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/nexusgate-api"
           printf '%s' "$TOKEN" | podman login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          # actions/attest pushes the attestations with credentials it reads only from Docker's
+          # config file, so log in there too, in Docker's format (it found none for 0.2.2).
+          printf '%s' "$TOKEN" | podman login ghcr.io --username "$GITHUB_ACTOR" --password-stdin \
+            --compat-auth-file "$HOME/.docker/config.json"
           for tag in $TAGS; do
             podman push --digestfile digest localhost/nexusgate-api:ci "$image:$tag"
           done
