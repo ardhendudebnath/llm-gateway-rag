@@ -51,6 +51,17 @@ Anyone can run it against any tag:
 python scripts/check_image.py ghcr.io/ardhendudebnath/nexusgate-api:0.2.0
 ```
 
+CI scans the image first, and refuses one with a HIGH or CRITICAL vulnerability that has a fix.
+Every published image carries signed attestations of where it was built (SLSA provenance)
+and what is in it (a CycloneDX SBOM), made with the publishing workflow's identity:
+
+```bash
+gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.2 \
+  --repo ardhendudebnath/llm-gateway-rag                                  # provenance
+gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.2 \
+  --repo ardhendudebnath/llm-gateway-rag --predicate-type https://cyclonedx.org/bom   # SBOM
+```
+
 To run a local build on kind instead, load it (`kind load image-archive`) and set
 `image.repository=localhost/nexusgate-api` and `image.tag=dev`.
 

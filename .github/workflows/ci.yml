@@ -41,16 +41,21 @@ jobs:
           name: coverage
           path: coverage.xml
 
-  # Every image is run the way the Helm chart runs it and smoke-tested before anything else happens
-  # to it. A push to main then publishes it to ghcr.io as `main` and `sha-<commit>`; a release tag
-  # vX.Y.Z publishes `X.Y.Z` (the tag the chart pulls by default), `X.Y` and `latest`. Pull
-  # requests build and check it, and never push.
+  # Every image is scanned, then run the way the Helm chart runs it and smoke-tested, before anything
+  # else happens to it. A push to main then publishes it to ghcr.io as `main` and `sha-<commit>`; a
+  # release tag vX.Y.Z publishes `X.Y.Z` (the tag the chart pulls by default), `X.Y` and `latest`.
+  # Published images carry signed attestations of where they were built and what is in them. Pull
+  # requests build, scan and check the image, and never push.
   image:
     needs: test
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
+      id-token: write # to sign attestations with a short-lived Sigstore certificate
+      attestations: write
+    env:
+      TRIVY_VERSION: "0.75.0"
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -82,11 +87,31 @@ jobs:
             --label "org.opencontainers.image.version=$VERSION" \
             --label "org.opencontainers.image.description=NexusGate: LLM gateway and RAG backend" \
             .
+      # Refuse a HIGH or CRITICAL vulnerability that has a fix, and list every package in the image
+      # (the SBOM attested below). Unfixed findings can't block a release: there is nothing to
+      # upgrade to yet, and the Containerfile takes every Debian fix the moment it ships.
+      - name: Scan it for vulnerabilities, and list what is in it
+        run: |
+          # docker-archive: Trivy reads that tar, or an OCI directory, but not an OCI archive.
+          podman save --format docker-archive --output image.tar localhost/nexusgate-api:ci
+          trivy() {
+            podman run --rm --volume "$PWD:/scan" --workdir /scan --volume trivy-cache:/root/.cache \
+              "docker.io/aquasec/trivy:$TRIVY_VERSION" "$@"
+          }
+          trivy image --input image.tar --format cyclonedx --output sbom.cdx.json --quiet
+          trivy image --input image.tar --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --exit-code 1 --quiet
+          rm image.tar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sbom
+          path: sbom.cdx.json
       - name: Run it as the Helm chart does, and smoke-test it
         run: |
           pip install httpx pyyaml
           python scripts/check_image.py localhost/nexusgate-api:ci
       - name: Publish to the GitHub Container Registry
+        id: publish
         if: github.event_name == 'push'
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -104,6 +129,29 @@ jobs:
             echo "$image@$(cat digest)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$(cat digest)" >> "$GITHUB_OUTPUT"
+      # Signed with the workflow's identity and pushed next to the image, so anyone can check which
+      # commit and workflow built it, and what it contains:
+      #   gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:<tag> --owner ardhendudebnath
+      # Storage records need an organisation-owned repository, so none are created.
+      - name: Attest where it was built (SLSA provenance)
+        if: github.event_name == 'push'
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.publish.outputs.image }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
+      - name: Attest what is in it (the SBOM)
+        if: github.event_name == 'push'
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.publish.outputs.image }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          sbom-path: sbom.cdx.json
+          push-to-registry: true
+          create-storage-record: false
 
   # On a release tag, once that release's image is published: the chart, as an OCI artifact on the
   # same registry, so installing needs no clone. It carries the release's version (a test locks the

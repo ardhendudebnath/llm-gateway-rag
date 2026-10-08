@@ -17,7 +17,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /srv
 
-# Dependencies first so code changes don't invalidate the layer. pyproject.toml names README.md as
+# Security fixes first. Debian's point updates land here without waiting for the base image to be
+# rebuilt, and pip and setuptools go to current releases (pip only for the build: it is removed
+# below). setuptools vendors its own copies of wheel and jaraco.context, which is where the base
+# image's fixable HIGH findings were. CI scans the result and refuses to publish an image with a
+# fixable HIGH or CRITICAL vulnerability.
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
+    && pip install --upgrade pip setuptools
+
+# Dependencies next so code changes don't invalidate the layer. pyproject.toml names README.md as
 # the package readme; an empty placeholder keeps README edits from reinstalling every dependency.
 COPY pyproject.toml ./
 RUN touch README.md && mkdir app && echo '__version__ = "0.0.0"' > app/__init__.py \
@@ -35,7 +43,9 @@ ENV HF_HUB_OFFLINE=1
 
 COPY app ./app
 COPY config ./config
-RUN pip install --no-deps .
+# pip leaves with the last install. Nothing runs it at runtime, and it vendors its own copies of
+# urllib3, msgpack and pkg_resources, which a vulnerability scan rightly counts against the image.
+RUN pip install --no-deps . && pip uninstall -y pip
 
 RUN useradd --create-home --uid 10001 nexus
 USER 10001
