@@ -62,8 +62,10 @@ gh attestation verify oci://ghcr.io/ardhendudebnath/nexusgate-api:0.2.3 \
   --repo ardhendudebnath/llm-gateway-rag --predicate-type https://cyclonedx.org/bom   # SBOM
 ```
 
-Signing starts at 0.2.3. 0.2.2's image passed the scan and was published, but its signing step
-found no registry credentials, so it carries no attestations and no chart was released for it.
+Both attestations start at 0.2.3. 0.2.2's image passed the scan and was published, and its
+provenance was signed and stored with GitHub, so the first command above verifies it. But pushing
+that attestation to the registry found no credentials, so 0.2.2 has nothing in the registry
+(`--bundle-from-oci` fails), no SBOM attestation, and no chart.
 
 To run a local build on kind instead, load it (`kind load image-archive`) and set
 `image.repository=localhost/nexusgate-api` and `image.tag=dev`.
