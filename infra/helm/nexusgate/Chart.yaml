@@ -7,8 +7,8 @@ type: application
 # One number for the release: the chart and the image are published together from tag vX.Y.Z, and
 # the chart pulls the image tagged appVersion. tests/unit/test_helm_chart.py holds both equal to
 # the app's version.
-version: 0.2.1
-appVersion: "0.2.1"
+version: 0.2.2
+appVersion: "0.2.2"
 home: https://github.com/ardhendudebnath/llm-gateway-rag
 sources:
   - https://github.com/ardhendudebnath/llm-gateway-rag
