@@ -1,0 +1,116 @@
+{"id": "q01", "kind": "semantic", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "says the secondary is paged; it is the engineering manager"}
+{"id": "q02", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q03", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q04", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q05", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q06", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q07", "kind": "semantic", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "says 30 minutes; it is 15"}
+{"id": "q08", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q09", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q10", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q11", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q12", "kind": "semantic", "verdict": "wrong", "scorer_correct": true, "scorer_abstained": false, "note": "says you can deploy on a Friday afternoon; deploys stop at 12:00"}
+{"id": "q13", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q14", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q15", "kind": "semantic", "verdict": "correct", "scorer_correct": false, "scorer_abstained": false, "note": "correct; the scorer missed it ('exceeds' 2% vs 'above' 2%)"}
+{"id": "q16", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q17", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q18", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q19", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q20", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q21", "kind": "semantic", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "no, without saying a hardware key is required"}
+{"id": "q22", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q23", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q24", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q25", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q26", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q27", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q28", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q29", "kind": "semantic", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "Dublin, without the primary region"}
+{"id": "q30", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q31", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q32", "kind": "semantic", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "100 req/s, without the burst of 200"}
+{"id": "q33", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q34", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q35", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q36", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q37", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q38", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q39", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q40", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": "correct content, but pasted the passage instead of answering"}
+{"id": "q41", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q42", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q43", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q44", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q45", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q46", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q47", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q48", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q49", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q50", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q51", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q52", "kind": "lexical", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "gives NG-2017 for NG-2021"}
+{"id": "q53", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q54", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q55", "kind": "lexical", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "wrong meaning for NG-2014"}
+{"id": "q56", "kind": "lexical", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "wrong reason for NG-1031"}
+{"id": "q57", "kind": "semantic", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "gives NG-2005 for NG-2002"}
+{"id": "q58", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q59", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q60", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q61", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q62", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q63", "kind": "lexical", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "no, without why (tier 2)"}
+{"id": "q64", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q65", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q66", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q67", "kind": "lexical", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "does not say how long"}
+{"id": "q68", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q69", "kind": "lexical", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "names the wrong alert for RB-121"}
+{"id": "q70", "kind": "lexical", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "1%, without 'for 15 minutes'"}
+{"id": "q71", "kind": "lexical", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "below 10%, without 'for 30 minutes'"}
+{"id": "q72", "kind": "lexical", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "more than 3 restarts, without 'in 15 minutes'"}
+{"id": "q73", "kind": "semantic", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "names the alert, without its severity or delay"}
+{"id": "q74", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q75", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q76", "kind": "lexical", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "what it controls, without the default"}
+{"id": "q77", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q78", "kind": "lexical", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "what it is, without the value"}
+{"id": "q79", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q80", "kind": "lexical", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q81", "kind": "lexical", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "what it does, without the default"}
+{"id": "q82", "kind": "lexical", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "what it is and why, without the value"}
+{"id": "q83", "kind": "semantic", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q84", "kind": "semantic", "verdict": "wrong", "scorer_correct": true, "scorer_abstained": false, "note": "says the deploy pipeline will NOT fail on an unknown key; it does"}
+{"id": "q85", "kind": "terse", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "gives the meaning of a neighbouring code"}
+{"id": "q86", "kind": "terse", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q87", "kind": "terse", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "gives the meaning of a neighbouring code"}
+{"id": "q88", "kind": "terse", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "gives the remedy, not what NG-2008 means"}
+{"id": "q89", "kind": "terse", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q90", "kind": "terse", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "the value, without what it counts"}
+{"id": "q91", "kind": "terse", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "5 seconds, without the doubling"}
+{"id": "q92", "kind": "terse", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "the value, without the unit"}
+{"id": "q93", "kind": "terse", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "tier only, not the owner or target"}
+{"id": "q94", "kind": "terse", "verdict": "terse", "scorer_correct": false, "scorer_abstained": false, "note": "the owner, without the tier"}
+{"id": "q95", "kind": "terse", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q96", "kind": "terse", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "calls tier 1 an availability target of 1"}
+{"id": "q97", "kind": "terse", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q98", "kind": "terse", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "answers with passage labels only"}
+{"id": "q99", "kind": "terse", "verdict": "incomplete", "scorer_correct": false, "scorer_abstained": false, "note": "500 jobs, without 'for 10 minutes'"}
+{"id": "q100", "kind": "terse", "verdict": "wrong", "scorer_correct": false, "scorer_abstained": false, "note": "calls a runbook an alert"}
+{"id": "q101", "kind": "terse", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "q102", "kind": "terse", "verdict": "correct", "scorer_correct": true, "scorer_abstained": false, "note": ""}
+{"id": "u01", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u02", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u03", "kind": "unanswerable", "verdict": "irrelevant", "scorer_correct": false, "scorer_abstained": false, "note": "answers about approving pull requests"}
+{"id": "u04", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u05", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u06", "kind": "unanswerable", "verdict": "irrelevant", "scorer_correct": false, "scorer_abstained": false, "note": "answers about reassigning services within a sprint"}
+{"id": "u07", "kind": "unanswerable", "verdict": "fabricated", "scorer_correct": false, "scorer_abstained": false, "note": "says the Platform team owns the mobile app"}
+{"id": "u08", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u09", "kind": "unanswerable", "verdict": "fabricated", "scorer_correct": false, "scorer_abstained": false, "note": "says the maximum is 3"}
+{"id": "u10", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u11", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u13", "kind": "unanswerable", "verdict": "abstained", "scorer_correct": false, "scorer_abstained": true, "note": ""}
+{"id": "u14", "kind": "unanswerable", "verdict": "misapplied", "scorer_correct": false, "scorer_abstained": false, "note": "names Conventional Commits, the commit-message format"}
+{"id": "u15", "kind": "unanswerable", "verdict": "fabricated", "scorer_correct": false, "scorer_abstained": false, "note": "says six rotations"}

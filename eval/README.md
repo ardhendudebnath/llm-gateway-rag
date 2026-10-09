@@ -14,6 +14,9 @@ python -m eval.retrieval_eval --corpus both --write  # regenerate RESULTS.md and
 The harness drives the production code (`IngestionService` → Qdrant → `Retriever`), so the numbers
 describe what the API serves, not a notebook re-implementation.
 
+What happens *after* retrieval — whether the answer is correct, cited, and admits when the passages
+fall short — is measured separately, end to end through the API: [ANSWERS.md](ANSWERS.md).
+
 ## Method
 
 **Corpus.** [`corpus/`](corpus) is an engineering handbook for a *fictional* company: 13 Markdown

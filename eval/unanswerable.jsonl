@@ -1,0 +1,14 @@
+{"id": "u01", "question": "How many days of paid parental leave do engineers get?", "absent": ["parental"], "near": "expenses.md, oncall.md: policies, but no leave policy"}
+{"id": "u02", "question": "What is the mileage rate for using a personal car on a business trip?", "absent": ["mileage"], "near": "expenses.md covers travel, meals and home office, not driving"}
+{"id": "u03", "question": "Which programming languages are approved for new services?", "absent": ["programming language", "golang", "python"], "near": "service-catalogue.md, code-review.md"}
+{"id": "u04", "question": "Which cloud provider does production run on?", "absent": ["aws", "gcp", "azure", "cloud provider"], "near": "'Acme Cloud' is the company's name, not a provider"}
+{"id": "u05", "question": "How often must employees complete security awareness training?", "absent": ["training", "awareness"], "near": "security.md covers secrets, access, laptops, not training"}
+{"id": "u06", "question": "How many story points can a sprint hold?", "absent": ["story point"], "near": "observability.md mentions a reliability sprint, nothing on capacity"}
+{"id": "u07", "question": "Which team owns the mobile app?", "absent": ["mobile"], "near": "service-catalogue.md has ownership rules, no mobile app"}
+{"id": "u08", "question": "Which load-testing tool does the team use?", "absent": ["locust", "jmeter", "load test", "load-test"], "near": "deployment.md, observability.md"}
+{"id": "u09", "question": "What is the maximum number of feature flags one service may have?", "absent": ["maximum number"], "near": "deployment.md has a feature flags section, without a limit"}
+{"id": "u10", "question": "How many interviews does a senior engineering candidate go through?", "absent": ["interview"], "near": "nothing on hiring"}
+{"id": "u11", "question": "What is the budget for a team offsite?", "absent": ["offsite", "off-site"], "near": "expenses.md, nothing on team events"}
+{"id": "u13", "question": "What is the minimum password length for employee accounts?", "absent": ["password"], "near": "security.md covers secrets management, not passwords"}
+{"id": "u14", "question": "Which code formatter is required for pull requests?", "absent": ["formatter", "prettier", "gofmt"], "near": "code-review.md: commit messages follow Conventional Commits, which is not a code formatter"}
+{"id": "u15", "question": "How long is the probation period for new engineers?", "absent": ["probation"], "near": "nothing on employment terms"}
