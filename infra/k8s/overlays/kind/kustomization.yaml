@@ -11,6 +11,9 @@ images:
   - name: nexusgate-api
     newName: localhost/nexusgate-api
     newTag: dev
+  - name: nexusgate-llm
+    newName: localhost/nexusgate-llm
+    newTag: dev
 
 # The local cluster is where chaos tests run, so fault injection is on here only. The base keeps
 # the safe default (off).

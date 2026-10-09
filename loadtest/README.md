@@ -2,7 +2,8 @@
 
 How much traffic can NexusGate take before it misses its latency objective, what breaks first,
 and what happens when a provider dies mid-traffic. Numbers: [`RESULTS.md`](RESULTS.md); raw data:
-`results/*.json`.
+`results/*.json`. The self-hosted model is measured separately, in seconds rather than requests per
+second: [`SELF_HOSTED.md`](SELF_HOSTED.md).
 
 ```bash
 python loadtest/in_cluster.py --label baseline                 # stepped load test, 5 levels x 45 s

@@ -25,6 +25,7 @@ is the way to run it on a cluster you don't own end to end.
 | Worker autoscaling | on, with prometheus-adapter bundled | off by default: it needs an adapter serving the queue-depth metric, which is cluster-specific |
 | PodDisruptionBudget | none | on for the API, so a node drain can't evict every replica at once |
 | Config changes | roll pods via hashed ConfigMap names | roll pods via a checksum annotation |
+| Self-hosted model | runs (Qwen2.5-1.5B on llama.cpp, the `local` route) | not shipped yet: `local` has nothing behind it, and `default` has no keyless fallback |
 
 ## Releases
 

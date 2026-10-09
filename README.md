@@ -27,7 +27,7 @@ flowchart LR
     SC -- miss --> RT[LLM Router<br/>fallback + circuit breaker]
     RT --> A[Anthropic]
     RT --> O[OpenAI]
-    RT --> V[vLLM self-hosted]
+    RT --> V[Self-hosted Qwen2.5-1.5B<br/>llama.cpp, 4-bit, CPU]
     G -->|/v1/rag/answer| RAG[RAG orchestrator<br/>embed · Qdrant · rerank]
     RAG --> QD[(Qdrant)]
     RAG -->|augmented prompt| SC
@@ -71,7 +71,7 @@ This is the command at the top: the gateway, Redis, an in-process Qdrant and the
 
 ### 2. The full stack on Kubernetes
 
-This runs 2 API replicas, a Celery worker, Redis, Qdrant, Prometheus, Alertmanager and Grafana on a local Kubernetes cluster: [kind](https://kind.sigs.k8s.io/) on [Podman](https://podman.io/). No Docker needed.
+This runs 2 API replicas, a Celery worker, a self-hosted model (Qwen2.5-1.5B-Instruct on llama.cpp, CPU only), Redis, Qdrant, Prometheus, Alertmanager and Grafana on a local Kubernetes cluster: [kind](https://kind.sigs.k8s.io/) on [Podman](https://podman.io/). No Docker needed.
 
 **Prerequisites:** Podman, kind and kubectl.
 - On Windows: `winget install RedHat.Podman Kubernetes.kind Kubernetes.kubectl` (Podman uses WSL2).
@@ -84,24 +84,24 @@ cp .env.example .env              # optional: ANTHROPIC_API_KEY / OPENAI_API_KEY
 
 That one command does the following:
 - Creates a rootful Podman machine if needed, then a kind cluster.
-- Builds the image from the [`Containerfile`](Containerfile) with Podman and loads it into kind.
+- Builds the images from the [`Containerfile`](Containerfile) and [`Containerfile.llm`](Containerfile.llm) with Podman and loads them into kind. The model image's first build downloads its ~1 GB of weights.
 - Creates the Secret from `.env`, generating any admin, JWT or Qdrant secrets that `.env` lacks, and prints the admin token at the end.
 - Applies the [kustomize overlay](infra/k8s/overlays/kind).
 
-The embedding and reranking models are baked into the image, so pods never download weights. Re-running rebuilds the image and rolls the API. `scripts/cluster-down.sh` (or `.ps1`) deletes the cluster.
+The embedding and reranking models are baked into the API image and the language model into its own, so pods never download weights. Re-running rebuilds the images and rolls the pods. `scripts/cluster-down.sh` (or `.ps1`) deletes the cluster.
 
 Once it is up:
 - API docs: http://localhost:8000/docs
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000 (the **NexusGate** dashboard is provisioned automatically)
 
-Check the running stack end to end. It uses mock routes only, so there are no API keys and no spend:
+Check the running stack end to end. There are no API keys and no spend: the mock routes, and with `--self-hosted` the local model too, its answers checked for content:
 
 ```bash
-python scripts/smoke_test.py --admin-token "$ADMIN_TOKEN" --prometheus-url http://localhost:9090
+python scripts/smoke_test.py --admin-token "$ADMIN_TOKEN" --prometheus-url http://localhost:9090 --self-hosted
 ```
 
-The `mock` and `chaos` routes work with **no API keys**:
+The `mock`, `chaos` and `local` routes work with **no API keys**, and so does `default`: it falls through the paid providers to the self-hosted model.
 
 ```bash
 # 1. Issue an API key (the admin token is printed by cluster-up)
@@ -120,7 +120,12 @@ curl -s localhost:8000/v1/chat/completions -H "Authorization: Bearer ng_..." \
   -H "Content-Type: application/json" \
   -d '{"model": "chaos", "cache": false, "messages": [{"role": "user", "content": "ping"}]}'
 
-# 4. Usage and spend, including $ saved by the cache
+# 4. A real answer from the self-hosted model: seconds, not milliseconds, and $0.
+curl -s localhost:8000/v1/chat/completions -H "Authorization: Bearer ng_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model": "local", "messages": [{"role": "user", "content": "What is backpressure?"}]}'
+
+# 5. Usage and spend, including $ saved by the cache and self-hosted requests counted apart
 curl -s localhost:8000/v1/usage -H "Authorization: Bearer ng_..."
 ```
 
@@ -379,6 +384,12 @@ actually produced a token, and after that the choice is locked in.
 - **A job that keeps killing its worker gets dead-lettered.** Attempts are counted per job in Redis, not passed in by the caller, because a redelivery after a worker dies resets the caller's count. Without that, one bad document crash-looped four workers for 70 minutes ([how it was found](loadtest/README.md#autoscaling)).
 - **Job counters live in Redis**, because the worker has no `/metrics` endpoint. The API publishes queue depth, dead-letter depth and per-outcome totals when Prometheus scrapes it, whichever process ran the job.
 
+**A self-hosted model, so the gateway answers without an API key.** The `local` route is Qwen2.5-1.5B-Instruct, 4-bit (Q4_K_M), served on CPU by llama.cpp's OpenAI-compatible server, and it is the last fallback of `default`: with no keys configured, `default` still answers once the paid providers fail and their breakers open.
+- **Its own image, weights baked in** ([`Containerfile.llm`](Containerfile.llm)): pinned to a model-repository revision and checked against its SHA-256 at build time, so pods start without internet access and every replica serves the same file. Non-root, read-only root filesystem, Ready in ~7 s.
+- **Through the same adapter as the paid providers**, so it gets fallback, circuit breaking, streaming with the server's own token counts, and metering — as self-hosted, at $0, counted apart from paid calls in `/v1/usage`. A test holds the route table's address for it to the Kubernetes Service, which lives in another file.
+- **Measured** ([SELF_HOSTED.md](loadtest/SELF_HOSTED.md)): 0.2 s to first token and 25–28 tokens/s for one short request, and ~35–40 tokens/s per 4-core pod, reached at 2 concurrent requests; beyond that, requests queue for a slot. But a RAG prompt of ~1,000 tokens takes 7–9 s to read before the first word: on a CPU, prompt size sets RAG latency, not decoding. Getting numbers worth quoting took gating the benchmark on the whole laptop's load, not just the cluster's — the same request ran 10× slower while something outside the cluster kept the host 98% busy.
+- **It answers correctly, but it doesn't cite.** It says "90 seconds" for the billing worker, without the `[1]` the prompt asks for. The smoke test reports citations rather than requiring them; measuring how often is an eval's job.
+
 **Kubernetes, built with Podman.** The image is an OCI image built from a `Containerfile`, and the stack is plain kustomize: a cluster-agnostic [base](infra/k8s/base) plus a [kind overlay](infra/k8s/overlays/kind) that adds NodePorts and the locally built image.
 - **Replicas:** the API runs 2 replicas. Rate limits, the cache and metering live in Redis, so they hold across replicas.
 - **Per-pod scraping:** Prometheus discovers every API pod through a headless Service's DNS records. Each replica keeps its own counters, and scraping the load-balanced Service would sample a random pod each time.
@@ -430,11 +441,13 @@ scripts/          cluster-up / cluster-down (PowerShell + bash), smoke test, ima
                   image as the Helm chart does), demo walkthrough, GIF recorder, Hugging Face
                   Space deploy
 Containerfile       API and worker image for Kubernetes, built with Podman
+Containerfile.llm   the self-hosted model: llama.cpp with Qwen2.5-1.5B-Instruct (4-bit) baked in
 Containerfile.demo  the one-container public demo
 docs/demo.gif       the README walkthrough, generated by scripts/record_gif.py
 eval/             retrieval eval: fictional corpus, a generator for a larger one,
                   102 labelled questions, harness, results
-loadtest/         Locust traffic, in-cluster runner, chaos test, autoscaling test, results
+loadtest/         Locust traffic, in-cluster runner, chaos test, autoscaling test, self-hosted
+                  model benchmark, results
 ```
 
 ## How it was built
@@ -456,12 +469,15 @@ Eight weekly milestones, following the project spec:
 | — | Beyond the roadmap: streaming responses | ✅ SSE with fallback decided before the first token, and a breaker that waits for the whole stream |
 | — | Beyond the roadmap: circuit state shared across replicas | ✅ [`app/gateway/breaker_cluster.py`](app/gateway/breaker_cluster.py): pooled failures, adopted state, one probe per cooldown |
 | — | Beyond the roadmap: a Helm chart for real clusters | ✅ [`infra/helm/nexusgate`](infra/helm/nexusgate): external datastores, Prometheus Operator monitoring, refuses to install without secrets; chart and image published to ghcr.io together on each release, the image only after running it as the chart does and passing a vulnerability scan, with signed provenance and SBOM |
+| — | Beyond the roadmap: a quantized self-hosted model (§10) | ✅ Qwen2.5-1.5B-Instruct, 4-bit, on llama.cpp ([`Containerfile.llm`](Containerfile.llm)): the `local` route, the last fallback of `default`, metered as self-hosted ([measured](loadtest/SELF_HOSTED.md)) |
 | — | Beyond the roadmap: hybrid retrieval (§4.4 lists vector search only) | ✅ [`app/rag/lexical.py`](app/rag/lexical.py): BM25 sparse vectors fused with the dense ones in Qdrant, and an eval set hard enough to show the difference |
 
 ## What I'd do with more time
 
-- An LLM-judged eval of answer faithfulness: retrieval is measured, groundedness is not.
-- An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. It needs a real provider, so the offline test suite can't answer it.
+- An LLM-judged eval of answer faithfulness: retrieval is measured, groundedness is not. The self-hosted model's answers are the first to measure — right, but uncited.
+- An eval for the agent: whether planned searches and self-critique actually beat one-shot `/v1/rag/answer` on the labelled set, and what the extra LLM calls buy. The self-hosted model makes it runnable with no provider key, though a 1.5B model tests the method more than the ceiling.
+- Put the self-hosted model in the Helm chart. It runs in the kind stack only, so on a Helm install the `local` route has nothing behind it.
+- Fewer, shorter passages when the self-hosted model answers: reading a ~1,000-token RAG prompt is 7–9 s of its latency on a CPU.
 - A model-comparison harness that feeds back into route ordering.
 - GPU inference, to lower the RAG latency floor. A smaller reranker was the CPU-only lever, and it
   isn't there: the shallowest model fastembed offers is not measurably faster than the current one

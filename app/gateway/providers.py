@@ -40,7 +40,8 @@ class StreamingProvider(Provider, Protocol):
 
 
 class LiteLLMProvider:
-    """Hosted providers (OpenAI, Anthropic, Mistral, ...) and self-hosted vLLM via LiteLLM's SDK.
+    """Hosted providers (OpenAI, Anthropic, Mistral, ...) and self-hosted OpenAI-compatible servers
+    (llama.cpp, vLLM) via LiteLLM's SDK.
 
     LiteLLM's own retries/fallbacks are disabled (``num_retries=0``): fallback and circuit breaking
     live in ``LLMRouter`` so the behaviour is explicit, observable, and unit-testable.

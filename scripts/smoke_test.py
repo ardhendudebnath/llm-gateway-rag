@@ -1,12 +1,17 @@
 """End-to-end smoke test against a running NexusGate stack (the kind cluster, or any deployment).
 
     python scripts/smoke_test.py --admin-token <token> [--prometheus-url http://localhost:9090]
+                                 [--self-hosted]
 
 Goes through the real network path: key issuance, a cache miss then a hit, fallback on the `chaos`
 route, usage metering, /metrics, RAG (upload queued to a worker, search, a cited answer), an agent
 run through its state graph, and (optionally) Prometheus scraping every API replica. It only uses
 the offline mock routes, so it needs no provider API keys and spends nothing. It cleans up the key,
 cache entries and document it creates, and exits non-zero on the first failed check.
+
+--self-hosted adds the self-hosted model behind the `local` route, which the kind stack runs: real
+answers checked for content (arithmetic, a cited RAG answer), streaming, $0 self-hosted metering
+and an agent run. Still no keys and no spend, but each call takes seconds on a CPU.
 """
 
 import argparse
@@ -289,6 +294,134 @@ def check_rag(api: httpx.Client, auth: dict, job_timeout: float) -> None:
         api.delete(f"/v1/rag/documents/{doc['doc_id']}", headers=auth)
 
 
+SELF_HOSTED = "local-qwen"
+# One right answer, so a real model's reply is checked, not just received.
+ARITHMETIC = "What is 12 multiplied by 7? Reply with the number only."
+
+
+def check_self_hosted(api: httpx.Client, admin_token: str, job_timeout: float) -> None:
+    """The self-hosted model behind the `local` route: a checked answer, a stream, self-hosted
+    metering, a grounded RAG answer and an agent run. It never calls `default`, which would spend
+    money wherever provider keys are configured. CPU inference takes seconds per call, not
+    milliseconds, so these requests get minutes."""
+    admin = {"X-Admin-Token": admin_token}
+    run_id = uuid.uuid4().hex[:10]
+    r = api.post(
+        "/v1/admin/keys",
+        headers=admin,
+        json={"tenant_id": f"local-{run_id}", "name": "smoke-local"},
+    )
+    check(r.status_code == 201, f"issue API key: expected 201, got {r.status_code} {r.text}")
+    key, key_id = r.json()["api_key"], r.json()["record"]["key_id"]
+    auth = {"Authorization": f"Bearer {key}"}
+    slow = httpx.Timeout(300)
+    doc_id = None
+    try:
+        started = time.monotonic()
+        r = api.post(
+            "/v1/chat/completions",
+            headers=auth,
+            timeout=slow,
+            json={
+                "model": "local",
+                "cache": False,
+                "temperature": 0,
+                "messages": [{"role": "user", "content": ARITHMETIC}],
+            },
+        )
+        check(r.status_code == 200, f"local chat: {r.status_code} {r.text}")
+        body = r.json()
+        check(body["nexusgate"]["deployment"] == SELF_HOSTED, f"served by {body['nexusgate']}")
+        reply = body["choices"][0]["message"]["content"]
+        check("84" in reply, f"12 x 7: the model answered {reply!r}")
+        ok(f"local route: {SELF_HOSTED} answered 12 x 7 = 84 in {time.monotonic() - started:.1f}s")
+
+        chunks = []
+        with api.stream(
+            "POST",
+            "/v1/chat/completions",
+            headers=auth,
+            timeout=slow,
+            json={
+                "model": "local",
+                "stream": True,
+                "cache": False,
+                "max_tokens": 48,
+                "messages": [{"role": "user", "content": "Name three uses of a message queue."}],
+            },
+        ) as resp:
+            check(resp.status_code == 200, f"local stream: {resp.status_code}")
+            for line in resp.iter_lines():
+                if line.startswith("data: ") and line != "data: [DONE]":
+                    chunks.append(json.loads(line.removeprefix("data: ")))
+        text = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks if c["choices"])
+        meta, usage = chunks[-1].get("nexusgate") or {}, chunks[-1].get("usage") or {}
+        check(len(chunks) > 5 and text.strip(), f"local stream: {len(chunks)} chunks, {text!r}")
+        check(usage.get("completion_tokens", 0) > 0, f"no usage from the model server: {usage}")
+        check(not meta.get("synthesized"), "the self-hosted stream was synthesized, not streamed")
+        ok(
+            f"local streaming: {len(chunks)} chunks, ttft {meta.get('ttft_ms', 0):.0f} ms, "
+            f"{usage['completion_tokens']} tokens counted by the model server"
+        )
+
+        totals = api.get("/v1/usage", params={"days": 1}, headers=auth).json()["totals"]
+        check(
+            totals["self_hosted_requests"] == 2 and totals["cost_usd"] == 0,
+            f"usage totals: {totals}",
+        )
+        ok("metering: 2 self-hosted requests at $0, kept apart from paid provider calls")
+
+        r = api.post(
+            "/v1/rag/documents", headers=auth, files={"file": ("runbook.md", RUNBOOK, "text/md")}
+        )
+        check(r.status_code == 202, f"RAG upload: {r.status_code} {r.text}")
+        job = wait_for_job(api, auth, r.json()["job_id"], job_timeout)
+        check(job["status"] == "done", f"ingestion job failed: {job.get('error')}")
+        doc_id = job["doc_id"]
+
+        question = "How long should I wait before restarting the billing worker?"
+        started = time.monotonic()
+        r = api.post(
+            "/v1/rag/answer",
+            headers=auth,
+            timeout=slow,
+            json={"question": question, "model": "local"},
+        )
+        check(r.status_code == 200, f"local RAG answer: {r.status_code} {r.text}")
+        answer = r.json()
+        check("90" in answer["answer"], f"the answer missed the 90 seconds: {answer['answer']!r}")
+        check(answer["citations"], "the answer came back without its passages")
+        # Reported, not required: the prompt asks for [n] markers, and a 1.5B model often answers
+        # correctly without them. How often is for an eval to measure, not a smoke test to fail on.
+        cited = [c["n"] for c in answer["citations"] if c["cited"]]
+        ok(
+            f"RAG answer from {SELF_HOSTED}: says 90 seconds in {time.monotonic() - started:.1f}s; "
+            f"cites {cited or 'no passage inline'}"
+        )
+
+        started = time.monotonic()
+        r = api.post(
+            "/v1/agents/research",
+            headers=auth,
+            timeout=slow,
+            json={"question": question, "model": "local", "max_revisions": 1},
+        )
+        check(r.status_code == 200, f"local agent run: {r.status_code} {r.text}")
+        run = r.json()
+        path = [s["node"] for s in run["steps"]]
+        check(path[:3] == ["plan", "retrieve", "draft"], f"agent path: {path}")
+        check(run["answer"].strip() and run["citations"], f"agent run: {run}")
+        ok(
+            f"agent on {SELF_HOSTED}: {' -> '.join(path)} in {run['llm_calls']} calls, "
+            f"{time.monotonic() - started:.1f}s"
+        )
+    finally:
+        if doc_id:
+            api.delete(f"/v1/rag/documents/{doc_id}", headers=auth)
+        api.delete("/v1/cache", headers=auth)
+        api.delete(f"/v1/admin/keys/{key_id}", headers=admin)
+
+
 def check_prometheus(url: str, expected_targets: int, timeout_s: float) -> None:
     # DNS service discovery refreshes every 15s, so a fresh rollout may take a moment to appear.
     deadline = time.monotonic() + timeout_s
@@ -318,6 +451,11 @@ def main() -> int:
     parser.add_argument(
         "--job-timeout", type=float, default=60, help="seconds to wait for a worker to ingest"
     )
+    parser.add_argument(
+        "--self-hosted",
+        action="store_true",
+        help="also check the self-hosted model behind the `local` route (the kind stack runs it)",
+    )
     args = parser.parse_args()
     if not args.admin_token:
         parser.error("--admin-token (or NEXUSGATE_ADMIN_TOKEN) is required")
@@ -328,6 +466,8 @@ def main() -> int:
             wait_ready(api, args.wait)
             ok("/readyz: API is ready and Redis reachable")
             check_gateway(api, args.admin_token, args.job_timeout)
+            if args.self_hosted:
+                check_self_hosted(api, args.admin_token, args.job_timeout)
         if args.prometheus_url:
             check_prometheus(args.prometheus_url, args.api_replicas, args.wait)
     except (CheckFailedError, httpx.HTTPError) as e:

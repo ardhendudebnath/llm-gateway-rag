@@ -19,6 +19,7 @@ resources:
   - qdrant.yaml
   - api.yaml
   - worker.yaml
+  - llm.yaml
   - prometheus.yaml
   - alertmanager.yaml
   - grafana.yaml

@@ -18,13 +18,20 @@ routes:
       model: openai/gpt-4.1-mini                     # needs OPENAI_API_KEY
       timeout_seconds: 30
       pricing: { input_per_mtok: 0.40, output_per_mtok: 1.60 }
-    - name: local-vllm
+    # Last resort, and the reason this route answers with no API keys at all: the self-hosted model.
+    - &local-qwen
+      name: local-qwen
       provider: litellm
-      model: hosted_vllm/Qwen/Qwen2.5-7B-Instruct    # self-hosted, OpenAI-compatible
-      api_base: http://vllm:8000/v1
-      timeout_seconds: 60
+      model: hosted_vllm/qwen2.5-1.5b-instruct       # any OpenAI-compatible server; here llama.cpp
+      api_base: http://llm:8080/v1                   # infra/k8s/base/llm.yaml, Containerfile.llm
+      timeout_seconds: 120                           # CPU inference: a long answer takes a while
       self_hosted: true                              # metered apart from paid providers
       pricing: { input_per_mtok: 0.0, output_per_mtok: 0.0 }
+
+  # The self-hosted model alone: Qwen2.5-1.5B-Instruct, 4-bit, on CPU. Real answers, no key, no
+  # per-token cost.
+  local:
+    - *local-qwen
 
   # Offline routes: no API keys, no spend. Used by the demo, load tests and chaos tests.
   mock:

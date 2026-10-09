@@ -14,7 +14,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLUSTER=nexusgate
 CONTEXT="kind-$CLUSTER"
 NS=nexusgate
-IMAGE=localhost/nexusgate-api:dev
+# image=Containerfile: the API (and workers), and the self-hosted model.
+IMAGES=(localhost/nexusgate-api:dev=Containerfile localhost/nexusgate-llm:dev=Containerfile.llm)
 export KIND_EXPERIMENTAL_PROVIDER=podman
 RECREATE=false
 if [[ "${1:-}" == "--recreate" ]]; then RECREATE=true; fi
@@ -63,15 +64,20 @@ else
   kind create cluster --config "$ROOT/infra/k8s/overlays/kind/cluster.yaml" --wait 180s
 fi
 
-step "Build $IMAGE with Podman"
-podman build --tag "$IMAGE" --file "$ROOT/Containerfile" "$ROOT"
-
-step "Load image into kind"
-archive=$(mktemp -t nexusgate-api.XXXXXX)
+archive=$(mktemp -t nexusgate-image.XXXXXX)
 secret_file=$(mktemp -t nexusgate-secrets.XXXXXX)
 trap 'rm -f "$archive" "$secret_file"' EXIT
-podman save --format docker-archive --output "$archive" "$IMAGE"
-kind load image-archive "$archive" --name "$CLUSTER"
+for entry in "${IMAGES[@]}"; do
+  image=${entry%%=*}
+  # The model image's first build downloads its ~1 GB of weights; later builds reuse the layer.
+  step "Build $image with Podman"
+  podman build --tag "$image" --file "$ROOT/${entry#*=}" "$ROOT"
+
+  step "Load $image into kind"
+  rm -f "$archive"  # podman save will not overwrite
+  podman save --format docker-archive --output "$archive" "$image"
+  kind load image-archive "$archive" --name "$CLUSTER"
+done
 
 step "Secret nexusgate-secrets"
 kc apply -f "$ROOT/infra/k8s/base/namespace.yaml"
@@ -102,14 +108,15 @@ done
 # Through a file rather than --from-literal, so values don't appear in the process list.
 kc -n "$NS" create secret generic nexusgate-secrets --from-env-file="$secret_file" \
   --dry-run=client -o yaml | kc apply -f -
-echo "provider keys: ${providers[*]:-none (mock and chaos routes only)}"
+echo "provider keys: ${providers[*]:-none (mock, chaos and the self-hosted local route)}"
 
 step "Deploy (kustomize overlay infra/k8s/overlays/kind)"
 kc apply -k "$ROOT/infra/k8s/overlays/kind"
-# The tag is always :dev, so restart the API onto the image that was just loaded.
-kc -n "$NS" rollout restart deployment/api deployment/worker
+# The tags are always :dev, so restart the pods onto the images that were just loaded.
+kc -n "$NS" rollout restart deployment/api deployment/worker deployment/llm
 for workload in statefulset/redis statefulset/qdrant deployment/api deployment/worker \
-  deployment/prometheus deployment/alertmanager deployment/grafana deployment/prometheus-adapter; do
+  deployment/llm deployment/prometheus deployment/alertmanager deployment/grafana \
+  deployment/prometheus-adapter; do
   # 10 minutes: on a fresh cluster these pods wait on first-time image pulls, and giving up early
   # fails a deployment that was only slow.
   kc -n "$NS" rollout status "$workload" --timeout=600s

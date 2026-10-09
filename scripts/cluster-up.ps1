@@ -23,7 +23,11 @@ $Root = Split-Path $PSScriptRoot -Parent
 $Cluster = "nexusgate"
 $Context = "kind-$Cluster"
 $Namespace = "nexusgate"
-$Image = "localhost/nexusgate-api:dev"
+# The API (and workers) and the self-hosted model, each from its own Containerfile.
+$Images = [ordered]@{
+    "localhost/nexusgate-api:dev" = "Containerfile"
+    "localhost/nexusgate-llm:dev" = "Containerfile.llm"
+}
 $env:KIND_EXPERIMENTAL_PROVIDER = "podman"
 
 # Native tools report progress on stderr, which Windows PowerShell 5.1 turns into terminating
@@ -91,16 +95,19 @@ if ($exists) {
     Invoke-Native kind create cluster --config "$Root/infra/k8s/overlays/kind/cluster.yaml" --wait 180s
 }
 
-Step "Build $Image with Podman"
-Invoke-Native podman build --tag $Image --file "$Root/Containerfile" $Root
+foreach ($image in $Images.Keys) {
+    # The model image's first build downloads its ~1 GB of weights; later builds reuse the layer.
+    Step "Build $image with Podman"
+    Invoke-Native podman build --tag $image --file "$Root/$($Images[$image])" $Root
 
-Step "Load image into kind"
-$archive = Join-Path ([IO.Path]::GetTempPath()) "nexusgate-api.tar"
-try {
-    Invoke-Native podman save --format docker-archive --output $archive $Image
-    Invoke-Native kind load image-archive $archive --name $Cluster
-} finally {
-    Remove-Item $archive -ErrorAction SilentlyContinue
+    Step "Load $image into kind"
+    $archive = Join-Path ([IO.Path]::GetTempPath()) "nexusgate-image.tar"
+    try {
+        Invoke-Native podman save --format docker-archive --output $archive $image
+        Invoke-Native kind load image-archive $archive --name $Cluster
+    } finally {
+        Remove-Item $archive -ErrorAction SilentlyContinue
+    }
 }
 
 Step "Secret nexusgate-secrets"
@@ -143,14 +150,15 @@ try {
     Remove-Item $secretFile -ErrorAction SilentlyContinue
 }
 $providers = @("ANTHROPIC_API_KEY", "OPENAI_API_KEY" | Where-Object { $secrets.Contains($_) })
-Write-Host ("provider keys: " + $(if ($providers) { $providers -join ", " } else { "none (mock and chaos routes only)" }))
+Write-Host ("provider keys: " + $(if ($providers) { $providers -join ", " } else { "none (mock, chaos and the self-hosted local route)" }))
 
 Step "Deploy (kustomize overlay infra/k8s/overlays/kind)"
 Invoke-Native kubectl --context $Context apply -k "$Root/infra/k8s/overlays/kind"
-# The tag is always :dev, so restart the API onto the image that was just loaded.
-Invoke-Native kubectl --context $Context -n $Namespace rollout restart deployment/api deployment/worker
+# The tags are always :dev, so restart the pods onto the images that were just loaded.
+Invoke-Native kubectl --context $Context -n $Namespace rollout restart `
+    deployment/api deployment/worker deployment/llm
 $workloads = "statefulset/redis", "statefulset/qdrant", "deployment/api", "deployment/worker",
-    "deployment/prometheus", "deployment/alertmanager", "deployment/grafana",
+    "deployment/llm", "deployment/prometheus", "deployment/alertmanager", "deployment/grafana",
     "deployment/prometheus-adapter"
 foreach ($workload in $workloads) {
     # 10 minutes: on a fresh cluster these pods wait on first-time image pulls, and giving up

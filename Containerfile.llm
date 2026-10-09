@@ -1,0 +1,25 @@
+# The self-hosted model: llama.cpp's OpenAI-compatible server with a quantized model baked in.
+# Build with Podman:  podman build -f Containerfile.llm -t localhost/nexusgate-llm:dev .
+# Like the API image's embedding and reranking models, the weights are fetched at build time, so
+# the pod starts without internet access and every replica serves exactly the same file.
+FROM ghcr.io/ggml-org/llama.cpp:server-v0.5.0
+
+# Qwen2.5-1.5B-Instruct (Apache-2.0), 4-bit Q4_K_M: ~1 GB, and fast enough on CPU. Pinned to a
+# repository revision and checked against its published SHA-256, so a build gets exactly this
+# file or fails.
+ARG MODEL_REPO=Qwen/Qwen2.5-1.5B-Instruct-GGUF
+ARG MODEL_REVISION=91cad51170dc346986eccefdc2dd33a9da36ead9
+ARG MODEL_FILE=qwen2.5-1.5b-instruct-q4_k_m.gguf
+ARG MODEL_SHA256=6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e
+
+# --chmod here rather than in a RUN: changing a file's mode in a later layer copies all 1 GB again.
+ADD --chmod=644 https://huggingface.co/${MODEL_REPO}/resolve/${MODEL_REVISION}/${MODEL_FILE} /models/model.gguf
+RUN echo "${MODEL_SHA256}  /models/model.gguf" | sha256sum -c -
+
+# llama-server reads its settings from LLAMA_ARG_* variables; the Deployment adds the ones that
+# depend on the hardware it is given (threads, parallel slots, context size).
+ENV LLAMA_ARG_MODEL=/models/model.gguf \
+    LLAMA_ARG_ALIAS=qwen2.5-1.5b-instruct \
+    LLAMA_ARG_HOST=0.0.0.0 \
+    LLAMA_ARG_PORT=8080
+EXPOSE 8080

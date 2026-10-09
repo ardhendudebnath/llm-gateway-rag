@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
+import yaml
 from pydantic import SecretStr, ValidationError
 
 from app.core.config import Settings
@@ -18,6 +19,22 @@ def test_shipped_routes_yaml_is_valid():
     config = RoutingConfig.from_yaml(REPO_ROOT / "config" / "routes.yaml")
     assert {"default", "mock", "chaos"} <= set(config.routes)
     assert {d.provider for d in config.deployments.values()} <= {"litellm", "mock"}
+
+
+def test_the_default_route_ends_on_the_self_hosted_model_the_stack_runs():
+    """No API keys still means answers: `default` falls through the paid providers to the model
+    the stack serves itself, and `local` is that model alone. Its address is the Service in
+    infra/k8s/base/llm.yaml; the two are in different files, so this is what keeps them agreeing."""
+    config = RoutingConfig.from_yaml(REPO_ROOT / "config" / "routes.yaml")
+    last = config.routes["default"][-1]
+    assert config.routes["local"] == [last]
+    assert last.self_hosted
+    assert last.pricing and last.pricing.input_per_mtok == last.pricing.output_per_mtok == 0
+
+    manifests = yaml.safe_load_all((REPO_ROOT / "infra/k8s/base/llm.yaml").read_text("utf-8"))
+    (service,) = [m for m in manifests if m["kind"] == "Service"]
+    port = service["spec"]["ports"][0]["port"]
+    assert last.api_base == f"http://{service['metadata']['name']}:{port}/v1"
 
 
 def test_empty_route_rejected():
