@@ -7,6 +7,10 @@
   "summary": {
     "questions": 116,
     "errors": 0,
+    "retried": {
+      "questions": 0,
+      "retries": 0
+    },
     "answerable": {
       "n": 102,
       "retrieved": 1.0,
@@ -42,6 +46,12 @@
     "latency_s": {
       "p50": 23.53,
       "p95": 48.02
+    },
+    "host_busy_pct": {
+      "p50": null,
+      "max": null,
+      "questions_over_threshold": 0,
+      "threshold": 35.0
     }
   },
   "results": [
@@ -61,7 +71,9 @@
       "abstained": false,
       "latency_s": 8.64,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q02",
@@ -79,7 +91,9 @@
       "abstained": false,
       "latency_s": 7.0,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q03",
@@ -97,7 +111,9 @@
       "abstained": false,
       "latency_s": 10.82,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q04",
@@ -115,7 +131,9 @@
       "abstained": false,
       "latency_s": 10.08,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q05",
@@ -133,7 +151,9 @@
       "abstained": false,
       "latency_s": 11.83,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q06",
@@ -151,7 +171,9 @@
       "abstained": false,
       "latency_s": 18.87,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q07",
@@ -169,7 +191,9 @@
       "abstained": false,
       "latency_s": 19.1,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q08",
@@ -187,7 +211,9 @@
       "abstained": false,
       "latency_s": 11.82,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q09",
@@ -205,7 +231,9 @@
       "abstained": false,
       "latency_s": 16.39,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q10",
@@ -223,7 +251,9 @@
       "abstained": false,
       "latency_s": 10.73,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q11",
@@ -241,7 +271,9 @@
       "abstained": false,
       "latency_s": 11.95,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q12",
@@ -259,7 +291,9 @@
       "abstained": false,
       "latency_s": 12.03,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q13",
@@ -277,7 +311,9 @@
       "abstained": false,
       "latency_s": 13.8,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q14",
@@ -295,7 +331,9 @@
       "abstained": false,
       "latency_s": 18.15,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q15",
@@ -313,7 +351,9 @@
       "abstained": false,
       "latency_s": 17.03,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q16",
@@ -331,7 +371,9 @@
       "abstained": false,
       "latency_s": 16.65,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q17",
@@ -349,7 +391,9 @@
       "abstained": false,
       "latency_s": 18.05,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q18",
@@ -367,7 +411,9 @@
       "abstained": false,
       "latency_s": 18.08,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q19",
@@ -385,7 +431,9 @@
       "abstained": false,
       "latency_s": 10.26,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q20",
@@ -403,7 +451,9 @@
       "abstained": false,
       "latency_s": 31.49,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q21",
@@ -421,7 +471,9 @@
       "abstained": false,
       "latency_s": 16.63,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q22",
@@ -439,7 +491,9 @@
       "abstained": false,
       "latency_s": 21.96,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q23",
@@ -457,7 +511,9 @@
       "abstained": false,
       "latency_s": 17.32,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q24",
@@ -475,7 +531,9 @@
       "abstained": false,
       "latency_s": 23.23,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q25",
@@ -493,7 +551,9 @@
       "abstained": false,
       "latency_s": 26.34,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q26",
@@ -511,7 +571,9 @@
       "abstained": false,
       "latency_s": 12.48,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q27",
@@ -529,7 +591,9 @@
       "abstained": false,
       "latency_s": 18.78,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q28",
@@ -547,7 +611,9 @@
       "abstained": false,
       "latency_s": 55.09,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q29",
@@ -565,7 +631,9 @@
       "abstained": false,
       "latency_s": 10.44,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q30",
@@ -583,7 +651,9 @@
       "abstained": false,
       "latency_s": 16.58,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q31",
@@ -601,7 +671,9 @@
       "abstained": false,
       "latency_s": 22.78,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q32",
@@ -619,7 +691,9 @@
       "abstained": false,
       "latency_s": 25.14,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q33",
@@ -637,7 +711,9 @@
       "abstained": false,
       "latency_s": 25.67,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q34",
@@ -655,7 +731,9 @@
       "abstained": false,
       "latency_s": 25.55,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q35",
@@ -673,7 +751,9 @@
       "abstained": false,
       "latency_s": 10.94,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q36",
@@ -691,7 +771,9 @@
       "abstained": false,
       "latency_s": 17.46,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q37",
@@ -709,7 +791,9 @@
       "abstained": false,
       "latency_s": 28.38,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q38",
@@ -727,7 +811,9 @@
       "abstained": false,
       "latency_s": 23.07,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q39",
@@ -745,7 +831,9 @@
       "abstained": false,
       "latency_s": 23.85,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q40",
@@ -763,7 +851,9 @@
       "abstained": false,
       "latency_s": 26.08,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q41",
@@ -781,7 +871,9 @@
       "abstained": false,
       "latency_s": 12.23,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q42",
@@ -799,7 +891,9 @@
       "abstained": false,
       "latency_s": 17.65,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q43",
@@ -817,7 +911,9 @@
       "abstained": false,
       "latency_s": 28.07,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q44",
@@ -835,7 +931,9 @@
       "abstained": false,
       "latency_s": 34.2,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q45",
@@ -853,7 +951,9 @@
       "abstained": false,
       "latency_s": 37.53,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q46",
@@ -871,7 +971,9 @@
       "abstained": false,
       "latency_s": 24.14,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q47",
@@ -889,7 +991,9 @@
       "abstained": false,
       "latency_s": 19.3,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q48",
@@ -907,7 +1011,9 @@
       "abstained": false,
       "latency_s": 28.3,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q49",
@@ -925,7 +1031,9 @@
       "abstained": false,
       "latency_s": 33.06,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q50",
@@ -943,7 +1051,9 @@
       "abstained": false,
       "latency_s": 33.36,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q51",
@@ -961,7 +1071,9 @@
       "abstained": false,
       "latency_s": 58.24,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q52",
@@ -979,7 +1091,9 @@
       "abstained": false,
       "latency_s": 22.84,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q53",
@@ -997,7 +1111,9 @@
       "abstained": false,
       "latency_s": 31.28,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q54",
@@ -1015,7 +1131,9 @@
       "abstained": false,
       "latency_s": 48.02,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q55",
@@ -1033,7 +1151,9 @@
       "abstained": false,
       "latency_s": 24.39,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q56",
@@ -1051,7 +1171,9 @@
       "abstained": false,
       "latency_s": 25.86,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q57",
@@ -1069,7 +1191,9 @@
       "abstained": false,
       "latency_s": 69.15,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q58",
@@ -1087,7 +1211,9 @@
       "abstained": false,
       "latency_s": 39.23,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q59",
@@ -1105,7 +1231,9 @@
       "abstained": false,
       "latency_s": 12.47,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q60",
@@ -1123,7 +1251,9 @@
       "abstained": false,
       "latency_s": 25.92,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q61",
@@ -1141,7 +1271,9 @@
       "abstained": false,
       "latency_s": 26.29,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q62",
@@ -1159,7 +1291,9 @@
       "abstained": false,
       "latency_s": 18.89,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q63",
@@ -1177,7 +1311,9 @@
       "abstained": false,
       "latency_s": 24.89,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q64",
@@ -1195,7 +1331,9 @@
       "abstained": false,
       "latency_s": 51.54,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q65",
@@ -1213,7 +1351,9 @@
       "abstained": false,
       "latency_s": 20.71,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q66",
@@ -1231,7 +1371,9 @@
       "abstained": false,
       "latency_s": 21.96,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q67",
@@ -1249,7 +1391,9 @@
       "abstained": false,
       "latency_s": 26.05,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q68",
@@ -1267,7 +1411,9 @@
       "abstained": false,
       "latency_s": 23.5,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q69",
@@ -1285,7 +1431,9 @@
       "abstained": false,
       "latency_s": 26.41,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q70",
@@ -1303,7 +1451,9 @@
       "abstained": false,
       "latency_s": 26.48,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q71",
@@ -1321,7 +1471,9 @@
       "abstained": false,
       "latency_s": 29.89,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q72",
@@ -1339,7 +1491,9 @@
       "abstained": false,
       "latency_s": 30.38,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q73",
@@ -1357,7 +1511,9 @@
       "abstained": false,
       "latency_s": 25.71,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q74",
@@ -1375,7 +1531,9 @@
       "abstained": false,
       "latency_s": 24.33,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q75",
@@ -1393,7 +1551,9 @@
       "abstained": false,
       "latency_s": 38.61,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q76",
@@ -1411,7 +1571,9 @@
       "abstained": false,
       "latency_s": 56.07,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q77",
@@ -1429,7 +1591,9 @@
       "abstained": false,
       "latency_s": 32.28,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q78",
@@ -1447,7 +1611,9 @@
       "abstained": false,
       "latency_s": 15.87,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q79",
@@ -1465,7 +1631,9 @@
       "abstained": false,
       "latency_s": 34.67,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q80",
@@ -1483,7 +1651,9 @@
       "abstained": false,
       "latency_s": 32.33,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q81",
@@ -1501,7 +1671,9 @@
       "abstained": false,
       "latency_s": 35.36,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q82",
@@ -1519,7 +1691,9 @@
       "abstained": false,
       "latency_s": 19.37,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q83",
@@ -1537,7 +1711,9 @@
       "abstained": false,
       "latency_s": 13.31,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q84",
@@ -1555,7 +1731,9 @@
       "abstained": false,
       "latency_s": 52.96,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q85",
@@ -1573,7 +1751,9 @@
       "abstained": false,
       "latency_s": 29.68,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q86",
@@ -1591,7 +1771,9 @@
       "abstained": false,
       "latency_s": 37.12,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q87",
@@ -1609,7 +1791,9 @@
       "abstained": false,
       "latency_s": 15.35,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q88",
@@ -1627,7 +1811,9 @@
       "abstained": false,
       "latency_s": 13.89,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q89",
@@ -1645,7 +1831,9 @@
       "abstained": false,
       "latency_s": 27.03,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q90",
@@ -1663,7 +1851,9 @@
       "abstained": false,
       "latency_s": 30.03,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q91",
@@ -1681,7 +1871,9 @@
       "abstained": false,
       "latency_s": 28.37,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q92",
@@ -1699,7 +1891,9 @@
       "abstained": false,
       "latency_s": 25.08,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q93",
@@ -1717,7 +1911,9 @@
       "abstained": false,
       "latency_s": 15.38,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q94",
@@ -1735,7 +1931,9 @@
       "abstained": false,
       "latency_s": 32.38,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q95",
@@ -1753,7 +1951,9 @@
       "abstained": false,
       "latency_s": 31.34,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q96",
@@ -1771,7 +1971,9 @@
       "abstained": false,
       "latency_s": 39.63,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q97",
@@ -1789,7 +1991,9 @@
       "abstained": false,
       "latency_s": 22.86,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q98",
@@ -1807,7 +2011,9 @@
       "abstained": false,
       "latency_s": 34.88,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q99",
@@ -1825,7 +2031,9 @@
       "abstained": false,
       "latency_s": 16.99,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q100",
@@ -1843,7 +2051,9 @@
       "abstained": false,
       "latency_s": 23.56,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q101",
@@ -1861,7 +2071,9 @@
       "abstained": false,
       "latency_s": 29.65,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "q102",
@@ -1879,7 +2091,9 @@
       "abstained": false,
       "latency_s": 16.85,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u01",
@@ -1897,7 +2111,9 @@
       "abstained": true,
       "latency_s": 25.26,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u02",
@@ -1915,7 +2131,9 @@
       "abstained": true,
       "latency_s": 6.14,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u03",
@@ -1933,7 +2151,9 @@
       "abstained": false,
       "latency_s": 17.52,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u04",
@@ -1951,7 +2171,9 @@
       "abstained": true,
       "latency_s": 23.0,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u05",
@@ -1969,7 +2191,9 @@
       "abstained": true,
       "latency_s": 8.16,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u06",
@@ -1987,7 +2211,9 @@
       "abstained": false,
       "latency_s": 15.61,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u07",
@@ -2005,7 +2231,9 @@
       "abstained": false,
       "latency_s": 9.58,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u08",
@@ -2023,7 +2251,9 @@
       "abstained": true,
       "latency_s": 35.89,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u09",
@@ -2041,7 +2271,9 @@
       "abstained": false,
       "latency_s": 24.58,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u10",
@@ -2059,7 +2291,9 @@
       "abstained": true,
       "latency_s": 33.87,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u11",
@@ -2077,7 +2311,9 @@
       "abstained": true,
       "latency_s": 11.91,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u13",
@@ -2095,7 +2331,9 @@
       "abstained": true,
       "latency_s": 27.27,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u14",
@@ -2113,7 +2351,9 @@
       "abstained": false,
       "latency_s": 14.98,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     },
     {
       "id": "u15",
@@ -2131,11 +2371,10 @@
       "abstained": false,
       "latency_s": 9.98,
       "deployment": "local-qwen",
-      "llm_calls": null
+      "llm_calls": null,
+      "host_busy_pct": null,
+      "retries": 0
     }
   ],
-  "dropped": [
-    "u12",
-    "u16"
-  ]
+  "dropped": []
 }

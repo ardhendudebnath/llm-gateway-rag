@@ -45,9 +45,13 @@ from pathlib import Path
 import httpx
 
 from eval.retrieval_eval import EVAL_DIR, Question, load_corpus, load_questions, normalise
+from loadtest.self_hosted import BUSY_HOST, HostCPU
 
 UNANSWERABLE_FILE = EVAL_DIR / "unanswerable.jsonl"
 RESULTS_DIR = EVAL_DIR / "answers"
+# A 503 is retried after max(Retry-After, 10 s x attempt): 10, 20, 30 s, which outlasts the
+# gateway's 30 s circuit cooldown.
+MAX_RETRIES = 3
 
 # --- scoring: pure functions, unit-tested ------------------------------------------------------
 
@@ -172,6 +176,10 @@ class Result:
     latency_s: float = 0.0
     deployment: str | None = None
     llm_calls: int | None = None
+    # How busy the whole host was while this question ran. The first agent run timed out on
+    # calls that take 15 s on a quiet laptop; without this, nothing says whether it was the agent.
+    host_busy_pct: float | None = None
+    retries: int = 0  # 503s waited out (an open circuit, or every deployment failing)
 
 
 def score(result: Result, passages: list[str], cited_ns: set[int], evidence: list[str]) -> None:
@@ -242,8 +250,25 @@ class Gateway:
         await self.client.aclose()
 
 
-async def ask(gw: Gateway, endpoint: str, model: str, result: Result, evidence: list[str]) -> None:
-    started = time.perf_counter()
+async def ask(
+    gw: Gateway,
+    endpoint: str,
+    model: str,
+    result: Result,
+    evidence: list[str],
+    host: HostCPU | None = None,
+) -> None:
+    started, started_at = time.perf_counter(), time.time()
+    try:
+        await _ask(gw, endpoint, model, result, evidence, started)
+    finally:
+        if host is not None:
+            result.host_busy_pct = host.mean(started_at, time.time())
+
+
+async def _ask(
+    gw: Gateway, endpoint: str, model: str, result: Result, evidence: list[str], started: float
+) -> None:
     if endpoint == "agent":
         path = "/v1/agents/research"
         body = {"question": result.question, "model": model, "max_revisions": 1}
@@ -251,7 +276,16 @@ async def ask(gw: Gateway, endpoint: str, model: str, result: Result, evidence: 
         path = "/v1/rag/answer"
         body = {"question": result.question, "model": model, "cache": False, "temperature": 0}
     try:
-        r = await gw.call("POST", path, headers=gw.auth, json=body)
+        for attempt in range(1, MAX_RETRIES + 2):
+            r = await gw.call("POST", path, headers=gw.auth, json=body)
+            if r.status_code != 503 or attempt > MAX_RETRIES:
+                break
+            # Every deployment failed, or its circuit is open. The first agent run treated this
+            # as final, and once the breaker opened it raced through 60 questions in seconds,
+            # each refused without reaching the model. A client told to come back gets an answer;
+            # the retries are counted, so availability is reported rather than hidden.
+            result.retries += 1
+            await asyncio.sleep(max(float(r.headers.get("retry-after", 5)), 10.0 * attempt))
         result.latency_s = round(time.perf_counter() - started, 2)
         if r.status_code != 200:
             result.error = f"{r.status_code}: {r.text[:200]}"
@@ -281,6 +315,10 @@ def summarise(results: list[Result]) -> dict:
     return {
         "questions": len(results),
         "errors": sum(1 for r in results if r.error),
+        "retried": {
+            "questions": sum(1 for r in results if r.retries),
+            "retries": sum(r.retries for r in results),
+        },
         "answerable": {
             "n": len(answerable),
             "retrieved": _share(answerable, "retrieved"),
@@ -319,7 +357,30 @@ def summarise(results: list[Result]) -> dict:
             if latencies
             else None,
         },
+        "host_busy_pct": {
+            "p50": statistics.median(busy) if (busy := _host_busy(results)) else None,
+            "max": max(busy) if busy else None,
+            # Questions that ran while something besides the model kept the host busy: their
+            # latency (and any timeout) describes the laptop, not the gateway.
+            "questions_over_threshold": sum(b > BUSY_HOST for b in busy),
+            "threshold": BUSY_HOST,
+        },
     }
+
+
+def _host_busy(results: list[Result]) -> list[float]:
+    return [r.host_busy_pct for r in results if r.host_busy_pct is not None]
+
+
+async def wait_for_quiet_host(host: HostCPU, quiet: float = 15.0, timeout_s: float = 900) -> None:
+    """Two quiet 15-second windows in a row before the first question, or give up and say so."""
+    deadline, calm = time.monotonic() + timeout_s, 0
+    while calm < 2 and time.monotonic() < deadline:
+        window_start = time.time()
+        await asyncio.sleep(15)
+        busy = host.mean(window_start, time.time())
+        calm = calm + 1 if busy is None or busy < quiet else 0
+    print(f"  host {host.mean(time.time() - 15, time.time())}% busy at the start")
 
 
 async def run(args: argparse.Namespace) -> dict:
@@ -335,19 +396,23 @@ async def run(args: argparse.Namespace) -> dict:
     sem = asyncio.Semaphore(args.concurrency)
     done = 0
 
-    async def one(result: Result, evidence: list[str]) -> None:
-        nonlocal done
-        async with sem:
-            await ask(gw, args.endpoint, args.model, result, evidence)
-        done += 1
-        if done % 10 == 0 or done == len(jobs):
-            print(f"  {done}/{len(jobs)} answered")
+    with HostCPU() as host:
+        print("Waiting for the host to go quiet")
+        await wait_for_quiet_host(host)
 
-    started = time.perf_counter()
-    try:
-        await asyncio.gather(*(one(r, ev) for r, ev in jobs))
-    finally:
-        await gw.teardown()
+        async def one(result: Result, evidence: list[str]) -> None:
+            nonlocal done
+            async with sem:
+                await ask(gw, args.endpoint, args.model, result, evidence, host)
+            done += 1
+            if done % 10 == 0 or done == len(jobs):
+                print(f"  {done}/{len(jobs)} answered")
+
+        started = time.perf_counter()
+        try:
+            await asyncio.gather(*(one(r, ev) for r, ev in jobs))
+        finally:
+            await gw.teardown()
     results = [r for r, _ in jobs]
     return {
         "label": args.label or f"{args.endpoint}-{args.model}",
@@ -363,9 +428,11 @@ async def run(args: argparse.Namespace) -> dict:
 def print_summary(report: dict) -> None:
     s = report["summary"]
     a, u = s["answerable"], s["unanswerable"]
+    retried = s.get("retried") or {"questions": 0, "retries": 0}
     print(
         f"\n{report['label']}: {report['endpoint']} on `{report['model']}`, {s['questions']} "
-        f"questions, {s['errors']} errors, {report['wall_s']} s"
+        f"questions, {s['errors']} errors, {report['wall_s']} s; "
+        f"{retried['questions']} question(s) needed {retried['retries']} retries after a 503"
     )
     print(f"  answerable ({a['n']}):")
     for name in (
@@ -385,6 +452,12 @@ def print_summary(report: dict) -> None:
         f"with unsupported specifics {u['with_unsupported_specifics']:.3f}"
     )
     print(f"  latency per answer: p50 {s['latency_s']['p50']} s, p95 {s['latency_s']['p95']} s")
+    h = s.get("host_busy_pct") or {}
+    if h.get("p50") is not None:
+        print(
+            f"  host busy while answering: p50 {h['p50']}%, max {h['max']}%; "
+            f"{h['questions_over_threshold']} question(s) ran with it over {h['threshold']:.0f}%"
+        )
 
 
 def resummarise(path: Path) -> dict:

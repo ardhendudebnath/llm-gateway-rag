@@ -32,6 +32,14 @@ _LIST_MARKER = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s*")
 # hit the next step too. Failing now beats paying for retrieval and failing later anyway.
 FATAL = (UnknownModelError, ClientRequestError, AllProvidersFailedError, OverloadedError)
 
+# A cap on every step's reply. The client never sees these calls, so only the agent can bound
+# them, and a small model can fall into a loop: on the answer eval, one step of a Qwen2.5-1.5B run
+# was 1,379 tokens in and still going when the route's 120 s timeout cut it off. A few of those
+# failed their runs and opened the circuit for every other caller. Each cap is several times what
+# its step needs (normal replies were 10-150 tokens), and the largest takes ~25 s at the ~20
+# tokens/s of a busy CPU, well inside the timeout.
+MAX_TOKENS = {"plan": 128, "draft": 512, "critique": 256, "revise": 512}
+
 
 def format_context(passages: list[RetrievedChunk]) -> str:
     def label(hit: RetrievedChunk) -> str:
@@ -50,8 +58,11 @@ class AgentNodes:
         self._retriever = retriever
         self._chat = chat
 
-    async def _ask(self, state: ResearchState, system: str, user: str) -> str:
-        """One LLM call, with its cost and tokens added to the run's totals."""
+    async def _ask(
+        self, state: ResearchState, step: str, system: str, user: str
+    ) -> tuple[str, str]:
+        """One LLM call, capped at the step's MAX_TOKENS, with its cost and tokens added to the
+        run's totals. Returns the reply and a note for the trace: empty, or that it was cut off."""
         response = await self._chat.complete(
             state.principal,
             ChatRequest(
@@ -60,6 +71,7 @@ class AgentNodes:
                     ChatMessage(role="system", content=system),
                     ChatMessage(role="user", content=user),
                 ],
+                max_tokens=MAX_TOKENS[step],
                 cache=state.cache,
             ),
         )
@@ -69,14 +81,21 @@ class AgentNodes:
             state.completion_tokens += response.usage.completion_tokens
         if response.nexusgate is not None:
             state.cost_usd += response.nexusgate.cost_usd
-        return response.choices[0].message.content.strip()
+        choice = response.choices[0]
+        cut = ""
+        if choice.finish_reason == "length":
+            log.warning("agent: the %s reply hit its %d-token cap", step, MAX_TOKENS[step])
+            cut = f", cut at {MAX_TOKENS[step]} tokens"
+        return choice.message.content.strip(), cut
 
     async def plan(self, state: ResearchState) -> Next:
         """Turn the question into search queries. A useless plan costs recall, not correctness,
         so anything unparseable falls back to searching for the question itself."""
+        cut = ""
         try:
-            reply = await self._ask(
+            reply, cut = await self._ask(
                 state,
+                "plan",
                 prompts.PLAN_SYSTEM.format(max_searches=state.max_searches),
                 state.question,
             )
@@ -92,7 +111,7 @@ class AgentNodes:
         ]
         queries = [q for q in dict.fromkeys(queries) if q][: state.max_searches]
         state.searches = queries or [state.question]
-        return Next("retrieve", note=f"{len(state.searches)} search(es)")
+        return Next("retrieve", note=f"{len(state.searches)} search(es){cut}")
 
     async def retrieve(self, state: ResearchState) -> Next:
         """Run every planned search and merge the hits, best score first, without duplicates.
@@ -117,10 +136,10 @@ class AgentNodes:
 
     async def draft(self, state: ResearchState) -> Next:
         context = format_context(state.passages)
-        state.draft = await self._ask(
-            state, prompts.DRAFT_SYSTEM.format(context=context), state.question
+        state.draft, cut = await self._ask(
+            state, "draft", prompts.DRAFT_SYSTEM.format(context=context), state.question
         )
-        return Next("critique", note=f"{len(state.draft)} chars")
+        return Next("critique", note=f"{len(state.draft)} chars{cut}")
 
     async def critique(self, state: ResearchState) -> Next:
         """Check the draft against the passages. The reviewer is advisory: if it fails, or the
@@ -129,8 +148,9 @@ class AgentNodes:
             return Next(END, note="revision budget spent")
         context = format_context(state.passages)
         try:
-            verdict = await self._ask(
+            verdict, cut = await self._ask(
                 state,
+                "critique",
                 prompts.CRITIQUE_SYSTEM.format(context=context),
                 prompts.CRITIQUE_USER.format(question=state.question, draft=state.draft),
             )
@@ -143,13 +163,18 @@ class AgentNodes:
         state.issues = [line.strip(" -*") for line in verdict.splitlines() if line.strip(" -*")]
         if _approves(verdict):
             state.issues = []
-            return Next(END, note="approved")
-        return Next("revise", note=f"{len(state.issues)} issue(s)")
+            return Next(END, note=f"approved{cut}")
+        if not state.issues:
+            # Nothing in the verdict to act on: on the eval, a reviewer looped on "- - - -" until
+            # its cap. Revising against no problems can only make the draft worse.
+            return Next(END, note=f"no usable review{cut}")
+        return Next("revise", note=f"{len(state.issues)} issue(s){cut}")
 
     async def revise(self, state: ResearchState) -> Next:
         context = format_context(state.passages)
-        state.draft = await self._ask(
+        revised, cut = await self._ask(
             state,
+            "revise",
             prompts.REVISE_SYSTEM.format(context=context),
             prompts.REVISE_USER.format(
                 question=state.question,
@@ -158,7 +183,12 @@ class AgentNodes:
             ),
         )
         state.revisions += 1
-        return Next("critique", note=f"revision {state.revisions}")
+        if _not_an_answer(revised):
+            # The model replied like the reviewer ("OK") instead of rewriting; on the eval that
+            # reply came back to the client as the answer. The draft stands.
+            return Next("critique", note=f"revision {state.revisions} discarded{cut}")
+        state.draft = revised
+        return Next("critique", note=f"revision {state.revisions}{cut}")
 
 
 def _score(hit: RetrievedChunk) -> float:
@@ -171,3 +201,9 @@ def _approves(verdict: str) -> bool:
     whereas the opposite reading would silently skip the review the agent exists to do."""
     head = verdict.strip().strip(".").upper()
     return head.startswith("OK") or not verdict.strip()
+
+
+def _not_an_answer(revision: str) -> bool:
+    """An empty revision, or a bare "OK": a reviewer's word, not a rewritten answer. Exact, so
+    an answer that merely starts with "Okay," still counts as one."""
+    return revision.strip().strip(".!").upper() in {"", "OK"}

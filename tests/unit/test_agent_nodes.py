@@ -3,7 +3,7 @@
 import pytest
 
 from app.agents.graph import END
-from app.agents.nodes import NO_CONTEXT_ANSWER, AgentNodes
+from app.agents.nodes import MAX_TOKENS, NO_CONTEXT_ANSWER, AgentNodes
 from app.agents.schemas import ResearchRequest
 from app.agents.service import ResearchAgent
 from app.agents.state import ResearchState
@@ -25,18 +25,23 @@ PRINCIPAL = Principal(key_id="k1", tenant_id="acme")
 class ScriptedChat:
     """Replies with the next queued string; records the prompts it was given."""
 
-    def __init__(self, *replies: str):
+    def __init__(self, *replies: str, finish_reason: str = "stop"):
         self.replies = list(replies)
+        self.finish_reason = finish_reason
         self.calls: list[tuple[str, str]] = []  # (system, user)
+        self.max_tokens: list[int | None] = []
 
     async def complete(self, principal, request) -> ChatResponse:
         system = next((m.content for m in request.messages if m.role == "system"), "")
         user = next((m.content for m in request.messages if m.role == "user"), "")
         self.calls.append((system, user))
+        self.max_tokens.append(request.max_tokens)
         reply = self.replies.pop(0) if self.replies else "…"
         return ChatResponse(
             model="fake/model",
-            choices=[Choice(message=ChoiceMessage(content=reply), finish_reason="stop")],
+            choices=[
+                Choice(message=ChoiceMessage(content=reply), finish_reason=self.finish_reason)
+            ],
             usage=UsageOut(prompt_tokens=10, completion_tokens=5, total_tokens=15),
             nexusgate=GatewayMeta(deployment="primary", cached=False, cost_usd=0.001, latency_ms=1),
         )
@@ -210,6 +215,46 @@ async def test_an_approving_reviewer_ends_the_run(verdict):
     assert s.issues == [] and s.revisions == 0
 
 
+async def test_a_review_with_nothing_to_act_on_keeps_the_draft():
+    """What a looping reviewer produced on the eval: dashes until its token cap. Revising against
+    no problems can only make the draft worse."""
+    s = state(draft="d", passages=[chunk("doc1", 0, "t", 0.9)])
+
+    decision = await AgentNodes(ScriptedRetriever(), ScriptedChat("- - - - - - - -")).critique(s)
+
+    assert decision.node == END and decision.note == "no usable review"
+    assert s.draft == "d" and s.revisions == 0
+
+
+@pytest.mark.parametrize("reply", ["OK", "ok.", "", "  "])
+async def test_a_revision_that_is_not_an_answer_is_discarded(reply):
+    """On the eval the model, asked to rewrite, replied "OK" like the reviewer, and that reached
+    the client as the answer."""
+    s = state(draft="I don't know.", issues=["no answer"], passages=[chunk("doc1", 0, "t", 0.9)])
+
+    decision = await AgentNodes(ScriptedRetriever(), ScriptedChat(reply)).revise(s)
+
+    assert decision.node == "critique" and "discarded" in decision.note
+    assert s.draft == "I don't know." and s.revisions == 1
+
+
+async def test_an_answer_that_starts_with_okay_is_still_an_answer():
+    s = state(draft="d", issues=["vague"], passages=[chunk("doc1", 0, "t", 0.9)])
+
+    await AgentNodes(ScriptedRetriever(), ScriptedChat("Okay: three business days [1].")).revise(s)
+
+    assert s.draft == "Okay: three business days [1]."
+
+
+def test_the_reviewer_is_told_that_saying_the_passages_lack_the_answer_is_correct():
+    """The eval's unanswerable questions: the reviewer flagged honest "I don't know" drafts as
+    unanswered, and the revisions invented answers."""
+    from app.agents import prompts
+
+    assert "don't contain the answer is correct" in prompts.CRITIQUE_SYSTEM
+    assert "Never ask for facts the passages don't contain" in prompts.CRITIQUE_SYSTEM
+
+
 async def test_problems_send_the_draft_to_be_revised():
     chat = ScriptedChat("- [2] is cited but says nothing about timing\n- the SLA is unanswered")
     s = state(draft="d", passages=[chunk("doc1", 0, "t", 0.9)])
@@ -305,3 +350,29 @@ async def test_a_full_run_plans_retrieves_drafts_critiques_and_revises_once():
     assert result.searches == ["postmortem deadline"]
     assert [c.cited for c in result.citations] == [True]
     assert result.usage.total_tokens == 60 and result.cost_usd == pytest.approx(0.004)
+
+
+async def test_every_step_caps_its_reply_so_a_looping_model_cannot_outlast_the_timeout():
+    """The client never sees the agent's own calls, so only the agent can bound them: on the
+    answer eval, an uncapped step of a 1.5B model ran to 1,379 tokens and timed out."""
+    hit = chunk("doc1", 0, "The postmortem draft is due within three business days.", 0.9)
+    chat = ScriptedChat("postmortem deadline", "Three days.", "- cites nothing", "Three days [1].")
+    agent = ResearchAgent(ScriptedRetriever({"postmortem deadline": [hit]}), chat, max_steps=12)
+
+    await agent.research(PRINCIPAL, ResearchRequest(question="When?", max_revisions=1))
+
+    caps = dict(zip(["plan", "draft", "critique", "revise"], chat.max_tokens, strict=True))
+    assert caps == MAX_TOKENS
+    assert all(cap is not None for cap in chat.max_tokens)
+
+
+async def test_a_reply_cut_at_its_cap_says_so_in_the_trace():
+    hit = chunk("doc1", 0, "The postmortem draft is due within three business days.", 0.9)
+    chat = ScriptedChat("postmortem deadline", "Three days, and then", finish_reason="length")
+    agent = ResearchAgent(ScriptedRetriever({"postmortem deadline": [hit]}), chat, max_steps=12)
+
+    result = await agent.research(PRINCIPAL, ResearchRequest(question="When?", max_revisions=0))
+
+    draft = next(s for s in result.steps if s.node == "draft")
+    assert f"cut at {MAX_TOKENS['draft']} tokens" in draft.note
+    assert result.answer == "Three days, and then"  # a cut reply is still the answer, flagged
